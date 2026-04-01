@@ -1,0 +1,3127 @@
+<!DOCTYPE html>
+<!--
+  RaaS to XSLT for EIB  |  v1.0
+  ─────────────────────────────────────────────────────────────────
+  Copyright (c) 2026 Srini
+
+  Permission is hereby granted, free of charge, to any person
+  obtaining a copy of this software and associated documentation
+  files (the "Software"), to deal in the Software without
+  restriction, including without limitation the rights to use, copy,
+  modify, merge, publish, distribute, sublicense, and/or sell copies
+  of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ─────────────────────────────────────────────────────────────────
+  A single-file browser tool for mapping Workday RaaS XML exports
+  to XSLT 3.0 transformations. No server required. No dependencies.
+  Supports CSV, TSV, Fixed-width, JSON, HTML, XML output formats.
+  ─────────────────────────────────────────────────────────────────
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RaaS to XSLT for EIB</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f5f7fa;color:#1a202c}
+header{background:linear-gradient(135deg,#1a56db 0%,#1e40af 100%);color:#fff;padding:0;box-shadow:0 2px 8px rgba(26,86,219,.3);display:block}
+header .hdr-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:7px 24px;background:rgba(0,0,0,.18);border-bottom:1px solid rgba(255,255,255,.1);font-size:.72rem}
+header .hdr-meta-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header .hdr-meta-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header .hdr-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.68rem;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+header .badge-oss{background:#22c55e;color:#fff}
+header .badge-mit{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}
+header .badge-ver{background:rgba(255,255,255,.12);color:#e2e8f0;border:1px solid rgba(255,255,255,.2)}
+header .hdr-author{color:rgba(255,255,255,.75);font-size:.7rem}
+header .hdr-author strong{color:#fff;font-weight:600}
+header .hdr-copy{color:rgba(255,255,255,.5);font-size:.67rem}
+header .hdr-main{padding:14px 24px;display:flex;align-items:center;gap:14px}
+header h1{font-size:1.3rem;font-weight:700;letter-spacing:-.3px}
+header .sub{font-size:.78rem;opacity:.8;margin-top:2px}
+@media(max-width:600px){header .hdr-meta{padding:6px 14px}header .hdr-main{padding:12px 14px}header .hdr-copy{display:none}}
+.container{max-width:1300px;margin:0 auto;padding:20px}
+.step{background:#fff;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:18px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.step-head{padding:12px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px}
+.step-num{width:26px;height:26px;border-radius:50%;background:#1a56db;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}
+.step-title{font-weight:600;font-size:.95rem;color:#2d3748}
+.step-body{padding:20px}
+/* Upload */
+.upload-zone{border:2px dashed #cbd5e0;border-radius:8px;padding:16px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbfc;display:flex;align-items:center;justify-content:center;gap:14px}
+.upload-zone:hover,.upload-zone.drag-over{border-color:#1a56db;background:#ebf5ff}
+.upload-zone .icon{font-size:1.6rem;flex-shrink:0}
+.upload-zone .uz-text{text-align:left}
+.upload-zone .uz-text p{color:#718096;margin-bottom:2px;font-size:.88rem}
+.upload-zone .uz-text .browse{color:#1a56db;text-decoration:underline;cursor:pointer;font-weight:500}
+.upload-zone .uz-text .uz-hint{font-size:.73rem;color:#a0aec0}
+/* Collapsed upload state — shown after file is loaded */
+.upload-loaded{display:none;align-items:center;gap:10px;background:#f0fdf4;border:1px solid #6ee7b7;border-radius:8px;padding:10px 16px;font-size:.85rem;color:#065f46}
+.upload-loaded.on{display:flex}
+.upload-loaded .ul-name{font-weight:700;color:#065f46}
+.upload-loaded .ul-meta{color:#6b7280;font-size:.78rem}
+.upload-loaded .ul-change{margin-left:auto;color:#1a56db;cursor:pointer;font-size:.78rem;text-decoration:underline;white-space:nowrap;background:none;border:none;padding:0}
+.upload-loaded .ul-change:hover{color:#1e40af}
+#file-input{display:none}
+.info-bar{display:none !important}
+.info-bar.on{display:none !important}
+/* Error banner */
+.error-banner{display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 16px;font-size:.85rem;color:#dc2626;margin-top:12px;align-items:center;gap:10px}
+.error-banner.on{display:flex}
+.error-banner .close-err{margin-left:auto;cursor:pointer;font-size:1.1rem;color:#dc2626;background:none;border:none;padding:0 4px}
+/* Fields */
+.fields-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#e2e8f0;border-radius:20px;padding:5px 12px;font-size:.8rem;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;user-select:none}
+.chip:hover{background:#bee3f8;border-color:#90cdf4}
+.chip:focus{outline:2px solid #1a56db;outline-offset:2px}
+.chip .smp{color:#718096;font-style:italic;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .plus{color:#1a56db;font-weight:700;font-size:.9rem}
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:9px 12px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-weight:600;color:#4a5568;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f7fbff}
+input[type=text],select{padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:.85rem;width:100%;background:#fff;transition:border-color .15s}
+input[type=text]:focus,select:focus{outline:none;border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:6px;font-size:.85rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:#1a56db;color:#fff}.btn-primary:hover{background:#1e40af}
+.btn-secondary{background:#fff;color:#374151;border:1px solid #d1d5db}.btn-secondary:hover{background:#f9fafb}
+.btn-danger{background:#fee2e2;color:#dc2626}.btn-danger:hover{background:#fecaca}
+.btn-success{background:#059669;color:#fff}.btn-success:hover{background:#047857}
+.btn-warning{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}.btn-warning:hover{background:#fde68a}
+.btn-sm{padding:4px 9px;font-size:.78rem}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+/* Undo toast */
+.undo-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a202c;color:#fff;padding:10px 20px;border-radius:8px;font-size:.85rem;display:none;align-items:center;gap:12px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.undo-toast.on{display:flex}
+.undo-toast button{background:#1a56db;color:#fff;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:.82rem;font-weight:600}
+.undo-toast button:hover{background:#3b82f6}
+/* Conditional editor */
+.cond-box{background:#fafafa;border:1px solid #e2e8f0;border-radius:6px;padding:12px;min-width:380px}
+.cond-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.cond-row label{font-size:.75rem;color:#718096;white-space:nowrap;font-weight:600}
+.cond-row input,.cond-row select{flex:1;min-width:70px}
+.otherwise-row{display:flex;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e0}
+.cond-summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:#5b21b6;padding:4px 0}
+.cond-summary:hover{color:#7c3aed}
+.cond-summary .arrow{transition:transform .2s;display:inline-block}
+.cond-summary .arrow.open{transform:rotate(90deg)}
+/* XPath error */
+.xpath-err{border-color:#dc2626 !important;background:#fef2f2 !important}
+.xpath-hint{font-size:.72rem;margin-top:3px;color:#dc2626}
+/* Preview */
+.preview-wrap{overflow-x:auto;border:1px solid #e2e8f0;border-radius:6px;max-height:400px;overflow-y:auto}
+.preview-tbl{font-size:.8rem;min-width:100%}
+.preview-tbl th{background:#1a56db;color:#fff;border-color:#1e40af;position:sticky;top:0}
+.preview-tbl td{white-space:nowrap;padding:6px 10px}
+.preview-toggle{display:flex;gap:4px;margin-bottom:10px}
+.preview-toggle button{padding:5px 12px;border:1px solid #d1d5db;background:#fff;border-radius:5px;font-size:.8rem;cursor:pointer;color:#4a5568}
+.preview-toggle button.active{background:#1a56db;color:#fff;border-color:#1a56db}
+/* XSLT out */
+textarea.xslt-out{width:100%;font-family:'Consolas','Courier New',monospace;font-size:.75rem;background:#1a202c;color:#a8d8a8;border-radius:6px;padding:16px;border:none;resize:vertical;line-height:1.5}
+.dl-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.empty{color:#a0aec0;font-size:.85rem;padding:20px;text-align:center}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700}
+.b-fixed{background:#fef3c7;color:#92400e}
+.b-field{background:#d1fae5;color:#065f46}
+.b-cond{background:#ede9fe;color:#5b21b6}
+/* Format selector */
+.fmt-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.fmt-card{display:flex;align-items:center;gap:8px;padding:10px 16px;border:2px solid #e2e8f0;border-radius:8px;cursor:pointer;transition:all .15s;background:#fff;font-size:.85rem;font-weight:500;user-select:none}
+.fmt-card:hover{border-color:#90cdf4;background:#f0f9ff}
+.fmt-card input[type=radio]{accent-color:#1a56db}
+.fmt-card.active{border-color:#1a56db;background:#ebf5ff;color:#1e3a8a}
+.fmt-opts{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:.85rem}
+.fmt-opts label{font-weight:500;color:#4a5568;white-space:nowrap}
+.fmt-opts input[type=text]{max-width:160px}
+.fmt-opts input[type=number]{max-width:70px}
+.sep-presets button{margin-right:4px}
+/* Config bar */
+.config-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0}
+#config-file-input{display:none}
+/* XSLT Comments panel */
+.comments-panel{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 18px;margin-top:14px}
+.comments-panel .cp-title{font-size:.82rem;font-weight:700;color:#92400e;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.comments-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.comments-grid .full{grid-column:1/-1}
+.comments-grid label{font-size:.78rem;font-weight:600;color:#6b7280;display:block;margin-bottom:3px}
+.comments-grid input,.comments-grid textarea{width:100%;border:1px solid #d1d5db;border-radius:5px;font-size:.83rem;padding:5px 9px;background:#fff;transition:border-color .15s}
+.comments-grid input:focus,.comments-grid textarea:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15)}
+.comments-grid textarea{resize:vertical;min-height:56px;font-family:inherit}
+#cmt-notes{font-family:'Consolas','Courier New',monospace;font-size:.8rem;white-space:pre;tab-size:4}
+.comments-req{color:#dc2626}
+@media(max-width:600px){.comments-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.cond-row{flex-direction:column;align-items:stretch}}
+/* ── Aggregation Step 3.5 ── */
+.agg-toggle{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#f0fdf4;border:1px solid #6ee7b7;border-radius:8px;margin-bottom:0;cursor:pointer;user-select:none}
+.agg-toggle input[type=checkbox]{accent-color:#059669;width:16px;height:16px}
+.agg-toggle label{font-weight:600;font-size:.88rem;color:#065f46;cursor:pointer}
+.agg-toggle .agg-hint{font-size:.75rem;color:#6b7280;margin-left:auto}
+.agg-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.agg-table th{text-align:left;padding:8px 12px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:.75rem;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.05em}
+.agg-table td{padding:6px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.agg-table tr:last-child td{border-bottom:none}
+.agg-table tbody tr:hover td{background:#f7fbff}
+.agg-role{padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:.8rem;background:#fff;cursor:pointer;color:#374151}
+.agg-role:focus{outline:none;border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+.role-key{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+.role-agg{background:#dcfce7;color:#166534;border-color:#86efac}
+.role-none{background:#f1f5f9;color:#6b7280}
+.agg-sep-input{width:60px;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:.78rem}
+.agg-active-badge{display:inline-flex;align-items:center;gap:5px;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:12px;padding:2px 10px;font-size:.72rem;font-weight:700}
+/* Conditional AND/OR bracket group */
+.cond-tests-group{border:2px solid #e9d8fd;border-radius:6px;padding:8px 10px;background:#faf5ff;position:relative;margin-bottom:6px}
+.cond-tests-group::before{content:'';position:absolute;left:-2px;top:16px;bottom:16px;width:3px;background:#a78bfa;border-radius:2px}
+.cond-logic-badge{display:inline-block;font-size:.65rem;font-weight:700;letter-spacing:.06em;padding:1px 6px;border-radius:8px}
+.badge-and{background:#ddd6fe;color:#5b21b6}
+.badge-or{background:#fce7f3;color:#9d174d}
+.cond-bracket{font-size:.95rem;font-weight:700;color:#7c3aed;padding:0 4px;user-select:none;flex-shrink:0}
+.cond-op-pill{display:flex;align-items:center;justify-content:center;gap:6px;margin:3px 0 3px 28px}
+.cond-op-pill select{font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:12px;border:1px solid #d1d5db;background:#fff;color:#5b21b6;cursor:pointer;width:auto}
+
+/* ── BUNDLE: UI improvements ── */
+
+/* Compact table rows */
+td{padding:4px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+
+/* Tighter step gaps */
+.step{background:#fff;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04);transition:border-left-color .2s}
+
+/* Left accent border — active step */
+.step.step-active{border-left:3px solid #1a56db}
+
+/* Step number — completed state */
+.step-num.done{background:#16a34a}
+
+/* Step reveal animation */
+@keyframes stepIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.step-animate{animation:stepIn .22s ease-out both}
+
+/* Button hover lift */
+.btn{transition:all .15s;transform:translateY(0)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
+.btn:active{transform:translateY(0);box-shadow:none}
+
+/* Sticky download bar */
+.sticky-dl{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e8f0;box-shadow:0 -2px 12px rgba(0,0,0,.08);padding:10px 24px;z-index:500;align-items:center;gap:10px;flex-wrap:wrap}
+.sticky-dl.on{display:flex}
+.sticky-dl .sdl-label{font-size:.75rem;color:#718096;margin-right:4px}
+.sticky-dl .btn-primary{padding:9px 20px;font-size:.88rem;font-weight:600}
+body.has-sticky{padding-bottom:62px}
+
+/* Success toast */
+.success-toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:9px 20px;border-radius:8px;font-size:.84rem;font-weight:500;display:none;align-items:center;gap:8px;z-index:600;box-shadow:0 4px 12px rgba(0,0,0,.15);white-space:nowrap}
+.success-toast.on{display:flex}
+
+/* Chip colors removed — all chips uniform grey */
+
+/* Monospace for XPath inputs in table */
+td input.xpath-field{font-family:'Consolas','Courier New',monospace;font-size:.8rem}
+
+/* Row highlight flash on add */
+@keyframes rowFlash{0%{background:#dbeafe}100%{background:transparent}}
+tr.row-flash td{animation:rowFlash .9s ease-out}
+
+/* Chip search box */
+.chip-search{width:100%;max-width:280px;margin-bottom:10px;padding:5px 10px;border:1px solid #cbd5e0;border-radius:20px;font-size:.82rem;background:#fff}
+.chip-search:focus{outline:none;border-color:#1a56db;box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+.chip-mapped{background:#dcfce7;border-color:#86efac;color:#166534;cursor:default;pointer-events:none}.chip-mapped .plus{display:none}.chip-mapped::before{content:"✓ ";font-weight:700;color:#16a34a}
+</style>
+</head>
+<body>
+
+<header>
+
+  <div class="hdr-meta">
+    <div class="hdr-meta-left">
+      <span class="hdr-badge badge-oss">⚡ Open Source</span>
+      <span class="hdr-badge badge-mit">⚖️ MIT License</span>
+      <span class="hdr-badge badge-ver">v1.0</span>
+    </div>
+    <div class="hdr-meta-right">
+      <span class="hdr-copy">Free to use, modify &amp; share</span>
+    </div>
+  </div>
+
+  <div class="hdr-main">
+    <div>
+      <h1>RaaS to XSLT for EIB</h1>
+      <div class="sub">Upload any RaaS enabled Report XML · Auto-detect fields · Configure mapping · Preview output · Download XSLT</div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div class="step-title">Upload XML</div>
+    </div>
+    <div class="step-body" style="padding:14px 20px">
+
+      <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload XML file by clicking or dragging">
+        <div class="icon">📂</div>
+        <div class="uz-text">
+          <p><strong>Drag &amp; drop</strong> your Workday Report_Data XML here &nbsp;·&nbsp; <span class="browse">browse for a file</span></p>
+          <p class="uz-hint">Supports any Workday RaaS XML export (Report_Data / Report_Entry structure)</p>
+        </div>
+      </div>
+
+      <div class="upload-loaded" id="upload-loaded">
+        <span>✅</span>
+        <span class="ul-name" id="ul-file"></span>
+        <span class="ul-meta" id="ul-meta"></span>
+        <button class="ul-change" onclick="resetUpload()" title="Load a different XML file">🔄 Change file</button>
+      </div>
+      <input type="file" id="file-input" accept=".xml,.txt" aria-label="Choose XML file">
+
+      <div class="error-banner" id="error-banner" role="alert">
+        <span id="error-msg"></span>
+        <button class="close-err" onclick="hideError()" aria-label="Dismiss error">&times;</button>
+      </div>
+      <div class="info-bar" id="info-bar">
+        <span>📄 <strong id="i-file"></strong></span>
+        <span>🔗 Namespace: <strong id="i-ns"></strong></span>
+        <span>📊 Entries: <strong id="i-count"></strong></span>
+      </div>
+
+      <div class="config-bar" id="config-bar" style="display:none;margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="saveConfig()" title="Save current column mapping as JSON">💾 Save Config</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('config-file-input').click()" title="Load a previously saved mapping config">📂 Load Config</button>
+        <input type="file" id="config-file-input" accept=".json" onchange="loadConfig(this)">
+        <span style="font-size:.72rem;color:#a0aec0;margin-left:auto">Save / load column mappings for reuse across sessions</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step2" style="display:none">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div class="step-title">Detected Fields — click any field to add it as an output column</div>
+    </div>
+    <div class="step-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <span id="scan-info" style="font-size:.78rem;color:#718096"></span>
+        <button class="btn btn-secondary btn-sm" id="btn-scan-all" onclick="scanAllEntries()" style="display:none" title="Scan all entries for additional fields">🔍 Scan All Entries</button>
+      </div>
+      <input type="text" class="chip-search" id="chip-search" placeholder="🔍 Filter fields..." oninput="filterChips(this.value)">
+      <div class="fields-wrap" id="fields-wrap" role="list" aria-label="Detected XML fields"></div>
+    </div>
+  </div>
+
+  <div class="step" id="step3" style="display:none">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <div class="step-title">Output Column Mapping</div>
+    </div>
+    <div class="step-body">
+      <div class="toolbar">
+        <button class="btn btn-secondary btn-sm" onclick="addCol('fixed')">＋ Fixed Value</button>
+        <button class="btn btn-secondary btn-sm" onclick="addCol('field')">＋ Field</button>
+        <button class="btn btn-secondary btn-sm" onclick="addCol('conditional')">＋ Conditional (if/else)</button>
+        <button class="btn btn-secondary btn-sm" onclick="addCol('concat')">＋ Concat Fields</button>
+        <button class="btn btn-secondary btn-sm" onclick="addCol('xpath')" title="Raw XPath 3.0 expression">＋ XPath Expr</button>
+        <span style="margin-left:auto;font-size:.78rem;color:#a0aec0">Ctrl+Z to undo · Use ▲▼ to reorder</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:38px"></th>
+              <th style="width:140px">Column Name</th>
+              <th style="width:105px">Source Type</th>
+              <th>Field / Value / Logic</th>
+              <th style="width:145px">Transform</th>
+              <th style="width:46px"></th>
+            </tr>
+          </thead>
+          <tbody id="cols-body"></tbody>
+        </table>
+      </div>
+      <p id="cols-empty" class="empty" style="display:none">No columns yet — add columns above or click a field chip to get started.</p>
+    </div>
+  </div>
+
+  <div class="step" id="step35" style="display:none">
+    <div class="step-head" style="cursor:pointer" onclick="toggleAggPanel()">
+      <div class="step-num" id="step35-num" style="background:#059669">Σ</div>
+      <div class="step-title">Summarise &amp; Roll Up <span id="agg-active-badge" style="display:none" class="agg-active-badge">● Active</span></div>
+      <span style="margin-left:auto;font-size:.78rem;color:#718096" id="agg-toggle-hint">Click to configure grouping</span>
+    </div>
+    <div class="step-body" id="agg-body" style="display:none">
+      <div style="margin-bottom:14px;font-size:.84rem;color:#6b7280;line-height:1.6;padding:10px 14px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0">
+        Assign each column a role to summarise and roll up repeating rows into one output row per person / group.
+        <strong style="color:#065f46">Identity</strong> columns stay the same across all rows (Employee ID, Name) — one output row per unique combination.
+        <strong style="color:#065f46">Total / Calculate</strong> columns are computed across all rows in each group (add up amounts, count rows, find highest value, etc.).
+        Columns with no role are left out of the rolled-up output.
+      </div>
+      <div class="table-wrap">
+        <table class="agg-table">
+          <thead>
+            <tr>
+              <th style="width:160px">Column</th>
+              <th style="width:180px">Role</th>
+              <th id="agg-sep-header" style="display:none">Separator (CONCAT only)</th>
+              <th style="width:200px">Generated expression</th>
+            </tr>
+          </thead>
+          <tbody id="agg-body-rows"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="aggAutoAssign()">⚡ Auto-assign roles</button>
+        <button class="btn btn-danger btn-sm" onclick="aggClearAll()">✕ Clear all roles</button>
+        <span style="font-size:.75rem;color:#a0aec0;align-self:center">Auto-assign sets identity fields automatically and suggests totals for numeric fields</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step4" style="display:none">
+    <div class="step-head">
+      <div class="step-num">4</div>
+      <div class="step-title">Output Format</div>
+    </div>
+    <div class="step-body">
+      <div class="fmt-grid" id="fmt-grid">
+        <label class="fmt-card active"><input type="radio" name="fmt" value="csv" checked onchange="setFmt('csv')"> 📄 CSV</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="tsv" onchange="setFmt('tsv')"> 🔢 Delimited Text</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="fixed" onchange="setFmt('fixed')"> 📐 Fixed-width</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="json" onchange="setFmt('json')"> { } JSON</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="html" onchange="setFmt('html')"> 🌐 HTML Table</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="xml" onchange="setFmt('xml')"> &lt;/&gt; XML Records</label>
+        <label class="fmt-card"><input type="radio" name="fmt" value="xlsx" onchange="setFmt('xlsx')"> 📊 Excel-ready CSV</label>
+      </div>
+
+      <div class="fmt-opts" id="opt-csv">
+        <label>Delimiter:</label>
+        <div class="sep-presets">
+          <button class="btn btn-secondary btn-sm" onclick="setDelim(',')">Comma ,</button>
+          <button class="btn btn-secondary btn-sm" onclick="setDelim('\t')">Tab ⇥</button>
+          <button class="btn btn-secondary btn-sm" onclick="setDelim('|')">Pipe |</button>
+          <button class="btn btn-secondary btn-sm" onclick="setDelim(';')">Semicolon ;</button>
+          <button class="btn btn-secondary btn-sm" onclick="setDelim('~')">Tilde ~</button>
+          <button class="btn btn-secondary btn-sm" onclick="setDelim('\x01')">SOH ␁</button>
+        </div>
+        <label>Custom:</label>
+        <input type="text" id="delim-custom" value="," maxlength="5" style="max-width:80px"
+          oninput="setDelim(this.value)" placeholder="char">
+        <label><input type="checkbox" id="chk-header" checked onchange="S.includeHeader=this.checked;refreshPreview()"> Include header row</label>
+        <label><input type="checkbox" id="chk-quote" checked onchange="S.csvQuote=this.checked;refreshPreview()"> Quote values</label>
+      </div>
+
+      <div class="fmt-opts" id="opt-fixed" style="display:none">
+        <label>Column widths (characters):</label>
+        <div id="fixed-widths" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+        <label><input type="checkbox" id="chk-fw-header" checked onchange="S.includeHeader=this.checked;refreshPreview()"> Include header row</label>
+        <label>Pad char: <input type="text" id="fw-pad" value=" " maxlength="1" style="max-width:40px" oninput="S.fixedPad=this.value||' ';refreshPreview()"></label>
+      </div>
+
+      <div class="fmt-opts" id="opt-json" style="display:none">
+        <label>Structure:</label>
+        <select onchange="S.jsonMode=this.value;refreshPreview()">
+          <option value="objects">Array of objects [{col:val,…}]</option>
+          <option value="arrays">Array of arrays [[val,…]]</option>
+        </select>
+        <label><input type="checkbox" id="chk-json-indent" checked onchange="S.jsonIndent=this.checked;refreshPreview()"> Pretty-print (indent)</label>
+      </div>
+
+      <div class="fmt-opts" id="opt-html" style="display:none">
+        <label>Table class: <input type="text" id="html-class" value="report-table" style="max-width:140px" oninput="S.htmlClass=this.value;refreshPreview()"></label>
+        <label><input type="checkbox" id="chk-html-style" checked onchange="S.htmlInlineStyle=this.checked;refreshPreview()"> Inline styles</label>
+        <label><input type="checkbox" id="chk-html-full" checked onchange="S.htmlFullPage=this.checked;refreshPreview()"> Full HTML page</label>
+      </div>
+
+      <div class="fmt-opts" id="opt-xml" style="display:none">
+        <label>Root element: <input type="text" id="xml-root" value="Records" style="max-width:120px" oninput="S.xmlRoot=this.value;refreshPreview()"></label>
+        <label>Row element: <input type="text" id="xml-row" value="Record" style="max-width:120px" oninput="S.xmlRow=this.value;refreshPreview()"></label>
+        <label><input type="checkbox" id="chk-xml-indent" checked onchange="S.xmlIndent=this.checked;refreshPreview()"> Indent output</label>
+      </div>
+
+      <div class="fmt-opts" id="opt-xlsx" style="display:none;flex-direction:column;gap:10px">
+        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;font-size:.8rem;color:#92400e;line-height:1.6">
+          <strong>⚠️ Workday EIB cannot generate native Excel files via XSLT.</strong><br>
+          The correct approach is to generate a CSV that Excel opens natively. Configure EIB as follows:<br>
+          <span style="display:inline-block;margin-top:6px;background:#fff8e7;border-radius:4px;padding:6px 10px;font-family:monospace;font-size:.78rem;color:#78350f">
+            Get Data → Alternate Output Format: <strong>CSV</strong><br>
+            Deliver → File Type: <strong>CSV</strong><br>
+            Deliver → File Name: <strong>YourReport<u>.csv</u></strong>
+          </span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+          <label><input type="checkbox" id="chk-xlsx-header" checked onchange="S.includeHeader=this.checked;refreshPreview()"> Include header row</label>
+          <label><input type="checkbox" id="chk-xlsx-quote" checked onchange="S.xlsxQuote=this.checked;refreshPreview()"> Quote values</label>
+          <span style="font-size:.72rem;color:#059669;background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px;padding:3px 8px">✅ XSLT outputs comma-delimited CSV — Excel opens it directly</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" id="step5" style="display:none">
+    <div class="step-head">
+      <div class="step-num">5</div>
+      <div class="step-title">Live Preview (first 10 rows)</div>
+    </div>
+    <div class="step-body">
+
+      <div class="preview-toggle" id="preview-toggle">
+        <button class="active" id="btn-prev-table" onclick="setPreviewMode('table')">📊 Table View</button>
+        <button id="btn-prev-raw" onclick="setPreviewMode('raw')">📝 Raw Output</button>
+      </div>
+
+      <div id="preview-table-wrap" class="preview-wrap">
+        <table class="preview-tbl">
+          <thead id="prev-head"></thead>
+          <tbody id="prev-body"></tbody>
+        </table>
+      </div>
+
+      <textarea id="preview-raw" class="xslt-out" rows="14" style="display:none" readonly spellcheck="false"></textarea>
+
+      <textarea id="preview-text" class="xslt-out" rows="14" style="display:none" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="step" id="step6" style="display:none">
+    <div class="step-head">
+      <div class="step-num">6</div>
+      <div class="step-title">Generate &amp; Download</div>
+    </div>
+    <div class="step-body">
+
+      <div class="comments-panel">
+        <div class="cp-title">💬 XSLT Header Comments <span style="font-weight:400;color:#b45309;font-size:.75rem">(added to the top of generated XSL)</span></div>
+        <div class="comments-grid">
+          <div>
+            <label>Purpose / Description <span class="comments-req">*</span></label>
+            <input type="text" id="cmt-purpose" placeholder="e.g. Extract active employee data for ADP payroll feed" oninput="refreshXsltComments()">
+          </div>
+          <div>
+            <label>Author / Team</label>
+            <input type="text" id="cmt-author" placeholder="e.g. Srini — Kelly Services HCM Team" oninput="refreshXsltComments()">
+          </div>
+          <div>
+            <label>Target System / Integration</label>
+            <input type="text" id="cmt-target" placeholder="e.g. ADP WorkforceNow · Inbound EIB" oninput="refreshXsltComments()">
+          </div>
+          <div>
+            <label>Workday Report / RaaS Name</label>
+            <input type="text" id="cmt-report" placeholder="e.g. CR_Active_Employees_Payroll" oninput="refreshXsltComments()">
+          </div>
+          <div class="full">
+            <label>Additional Notes</label>
+            <textarea id="cmt-notes" placeholder="e.g. Filters out terminated workers · Handles dateTime timezone offsets · Converts amounts to 2dp" oninput="refreshXsltComments()" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="dl-bar" style="margin-top:14px">
+        <button class="btn btn-secondary" onclick="toggleXsltView()">👁 View / Hide Generated XSLT</button>
+        <span style="font-size:.75rem;color:#a0aec0;align-self:center">Use the sticky bar at the bottom to download</span>
+      </div>
+      <textarea class="xslt-out" id="xslt-area" rows="22" style="display:none" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<div class="sticky-dl" id="sticky-dl">
+  <span class="sdl-label">Quick actions:</span>
+  <button class="btn btn-primary" onclick="dlXSLT()">⬇ Download XSLT (.xsl)</button>
+  <button class="btn btn-success" id="sticky-btn-output" onclick="dlOutput()">⬇ Download CSV</button>
+  <button class="btn btn-secondary" onclick="toggleXsltView();document.getElementById('step6').scrollIntoView({behavior:'smooth'})">👁 View XSLT</button>
+</div>
+
+<div class="success-toast" id="success-toast">✅ <span id="success-msg">Downloaded!</span></div>
+
+<div class="undo-toast" id="undo-toast" role="status" aria-live="polite">
+  <span id="undo-msg">Column deleted</span>
+  <button onclick="undoLast()">Undo</button>
+</div>
+
+<script>
+
+const S = {
+  fileName: '',
+  nsURI: '',
+  allEntries: [],
+  entries: [],
+  fields: [],
+  cols: [],
+  nid: 1,
+  scanCount: 0,
+
+  format: 'csv',
+  delimiter: ',',
+  includeHeader: true,
+  csvQuote: true,
+  fixedWidths: {},
+  fixedPad: ' ',
+  jsonMode: 'objects',
+  jsonIndent: true,
+  htmlClass: 'report-table',
+  htmlInlineStyle: true,
+  htmlFullPage: true,
+  xmlRoot: 'Records',
+  xmlRow: 'Record',
+  xmlIndent: true,
+  xlsxQuote: true,
+  repeatingGroups: new Set(),
+  groupingEnabled: false,
+
+  previewMode: 'table'
+};
+
+const undoStack = [];
+const MAX_UNDO = 30;
+let undoTimer = null;
+
+function pushUndo(msg) {
+  undoStack.push({ cols: JSON.parse(JSON.stringify(S.cols)), nid: S.nid, msg: msg || 'Action' });
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+
+function undoLast() {
+  if (!undoStack.length) return;
+  const snap = undoStack.pop();
+  S.cols = snap.cols;
+  S.nid = snap.nid;
+  renderAll();
+  hideUndo();
+}
+
+function showUndo(msg) {
+  const toast = document.getElementById('undo-toast');
+  document.getElementById('undo-msg').textContent = msg || 'Action undone';
+  toast.classList.add('on');
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => toast.classList.remove('on'), 6000);
+}
+
+function hideUndo() {
+  document.getElementById('undo-toast').classList.remove('on');
+  clearTimeout(undoTimer);
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    e.preventDefault();
+    if (undoStack.length) {
+      undoLast();
+    }
+  }
+});
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  document.getElementById('error-msg').textContent = msg;
+  el.classList.add('on');
+}
+
+function hideError() {
+  document.getElementById('error-banner').classList.remove('on');
+}
+
+const zone = document.getElementById('upload-zone');
+const fi   = document.getElementById('file-input');
+
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+zone.addEventListener('click', (e) => { e.stopPropagation(); fi.value = ''; fi.click(); });
+zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.value = ''; fi.click(); } });
+fi.addEventListener('change', () => { if (fi.files[0]) readFile(fi.files[0]); });
+
+function readFile(f) {
+  hideError();
+  S.fileName = f.name;
+  const r = new FileReader();
+  r.onerror = () => showError('Failed to read file. Please try again.');
+  r.onload = e => parseXML(e.target.result);
+  r.readAsText(f);
+}
+
+function parseXML(text) {
+  hideError();
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  const root = doc.documentElement;
+
+  if (root.localName === 'parsererror' || root.querySelector('parsererror')) {
+    showError('XML parse error — the file does not appear to be valid XML. Please check the file contents and try again.');
+    return;
+  }
+
+  const nsAttr = root.getAttributeNS('http://www.w3.org/2000/xmlns/', 'wd')
+               || root.getAttribute('xmlns:wd') || '';
+  S.nsURI = nsAttr;
+
+  const ns = S.nsURI;
+  let entries = ns
+    ? Array.from(root.getElementsByTagNameNS(ns, 'Report_Entry'))
+    : Array.from(root.getElementsByTagName('Report_Entry'));
+  if (!entries.length) entries = Array.from(root.querySelectorAll('Report_Entry'));
+
+  if (!entries.length) {
+    showError('No Report_Entry elements found in this XML. Expected standard Workday RaaS structure with <Report_Data>/<Report_Entry>.');
+    return;
+  }
+
+  S.allEntries = entries;
+  S.entries = entries;
+
+  const scanLimit = Math.min(entries.length, 200);
+  const fieldMap = new Map();
+  entries.slice(0, scanLimit).forEach(e => walkEntry(e, '', fieldMap, ns));
+  S.scanCount = scanLimit;
+  S.fields = [...fieldMap.entries()].map(([p, v]) => ({
+    path: p, xpath: toXPath(p, v.attrType),
+    samples: [...new Set(v.vals)].slice(0, 2),
+    type: v.type, attrType: v.attrType,
+    isWID: v.attrType === 'WID'
+  }));
+
+  S.repeatingGroups = new Set();
+  if (entries.length) {
+    function findRepeatingGroups(el, path) {
+      const counts = new Map();
+      for (const child of el.children) {
+        if (child.localName === 'ID') continue;
+        counts.set(child.localName, (counts.get(child.localName) || 0) + 1);
+      }
+      for (const child of el.children) {
+        if (child.localName === 'ID') continue;
+        const childPath = path ? path + '/' + child.localName : child.localName;
+        if (counts.get(child.localName) > 1) {
+          S.repeatingGroups.add(childPath);
+        }
+        if (child.children.length > 0) findRepeatingGroups(child, childPath);
+      }
+    }
+    entries.slice(0, Math.min(entries.length, 5)).forEach(e => findRepeatingGroups(e, ''));
+  }
+
+  S.cols = [];
+  S.nid = 1;
+  undoStack.length = 0;
+  autoMap();
+
+  const _ta = document.getElementById('xslt-area');
+  if (_ta) { _ta.style.display = 'none'; _ta.value = ''; }
+  renderInfo(); renderFields(); renderAll();
+  ['step2','step3','step35','step4','step5','step6'].forEach(id => show(id));
+  document.getElementById('config-bar').style.display = 'flex';
+
+  const scanInfo = document.getElementById('scan-info');
+  scanInfo.textContent = `Scanned ${scanLimit} of ${entries.length} entries · ${S.fields.length} fields detected`;
+  document.getElementById('btn-scan-all').style.display = (scanLimit < entries.length) ? 'inline-flex' : 'none';
+}
+
+function scanAllEntries() {
+  if (!S.allEntries.length) return;
+  const ns = S.nsURI;
+  const fieldMap = new Map();
+
+  S.fields.forEach(f => fieldMap.set(f.path, { type: f.type, attrType: f.attrType, vals: [...f.samples] }));
+
+  S.allEntries.forEach(e => walkEntry(e, '', fieldMap, ns));
+  S.scanCount = S.allEntries.length;
+  S.fields = [...fieldMap.entries()].map(([p, v]) => ({
+    path: p, xpath: toXPath(p, v.attrType),
+    samples: [...new Set(v.vals)].slice(0, 2),
+    type: v.type, attrType: v.attrType,
+    isWID: v.attrType === 'WID'
+  }));
+  renderFields();
+  const scanInfo = document.getElementById('scan-info');
+  scanInfo.textContent = `Scanned all ${S.allEntries.length} entries · ${S.fields.length} fields detected`;
+  document.getElementById('btn-scan-all').style.display = 'none';
+}
+
+function walkEntry(el, parentPath, map, ns) {
+  for (const child of el.children) {
+    const local = child.localName;
+    const path = parentPath ? `${parentPath}/${local}` : local;
+
+    if (local === 'ID') {
+      const typeVal = child.getAttributeNS(ns, 'type') || child.getAttribute('wd:type') || '';
+      if (typeVal && child.textContent.trim()) {
+        const attrPath = `${parentPath}[${typeVal}]`;
+        if (!map.has(attrPath)) map.set(attrPath, { type: 'attr', attrType: typeVal, vals: [] });
+        map.get(attrPath).vals.push(child.textContent.trim());
+      }
+      continue;
+    }
+
+    if (child.children.length === 0 && child.textContent.trim()) {
+      if (!map.has(path)) map.set(path, { type: 'text', attrType: null, vals: [] });
+      map.get(path).vals.push(child.textContent.trim());
+    }
+
+    if (child.children.length > 0) {
+      walkEntry(child, path, map, ns);
+    }
+  }
+}
+
+function toXPath(path, attrType) {
+  if (attrType) {
+    const base = path.replace(/\[.+\]$/, '');
+    return `${base.split('/').map(p=>'wd:'+p).join('/')}/wd:ID[@wd:type='${attrType}']`;
+  }
+  return path.split('/').map(p => 'wd:' + p).join('/');
+}
+
+function autoMap() {
+  S.cols = [];
+
+  const mappableFields = S.fields.filter(f => !f.isWID);
+  const limit = Math.min(mappableFields.length, 15);
+  for (let i = 0; i < limit; i++) {
+    const f = mappableFields[i];
+    const leafName = f.path.split('/').pop().replace(/\[.+\]/, '');
+    const colName = leafName.toUpperCase();
+    const transform = guessTransform(leafName, f.samples);
+    S.cols.push(mkCol('field', colName, f.path, '', transform, [], ''));
+  }
+}
+
+function guessTransform(fieldName, samples) {
+  const lower = fieldName.toLowerCase();
+
+  if (lower.includes('date') || lower.includes('_dt') || lower === 'effective_as_of'
+      || lower === 'hire_date' || lower === 'termination_date' || lower === 'birth_date') {
+    return 'date-mdy';
+  }
+
+  if (lower.includes('amount') || lower.includes('rate') || lower.includes('balance')
+      || lower.includes('salary') || lower.includes('total') || lower.includes('hours')
+      || lower.includes('premium') || lower.includes('contribution') || lower.includes('deduction')
+      || lower.includes('cost') || lower.includes('price') || lower.includes('percent')) {
+
+    if (samples.length && samples.some(s => /^-?\d+\.?\d*$/.test(s.trim()))) {
+      return 'num-2dp';
+    }
+  }
+
+  if (lower.includes('name') && !lower.includes('username') && !lower.includes('plan_name')) {
+    return 'uppercase';
+  }
+  return 'none';
+}
+
+function normalizeCond(c) {
+  const base = {
+    out: c.out || '',
+    outMode: c.outMode || (c.outIsXpath ? 'xpath' : 'text'),
+    outField: c.outField || '',
+    outTransform: c.outTransform || 'none',
+    outTransformParam: c.outTransformParam || '',
+    outIsXpath: c.outIsXpath || false,
+    groupLogic: c.groupLogic || 'and'
+  };
+
+  if (c.groups && Array.isArray(c.groups)) {
+    return {
+      groups: c.groups.map(g => ({
+        logic: g.logic || 'and',
+        tests: (g.tests || []).map(t => ({ fp: t.fp || '', op: t.op || 'contains', has: t.has || '' }))
+      })),
+      ...base
+    };
+  }
+
+  const tests = c.tests
+    ? c.tests.map(t => ({ fp: t.fp || '', op: t.op || 'contains', has: t.has || '' }))
+    : [{ fp: c.fp || '', op: c.op || 'contains', has: c.has || '' }];
+  return {
+    groups: [{ logic: c.logic || 'and', tests }],
+    ...base
+  };
+}
+
+function mkCol(srcType, name, fp, fixed, transform, conds, otherwise) {
+  return {
+    id: S.nid++, srcType, name, fp, fixed, transform,
+    transformParam: '',
+    transformParam2: '',
+    conds: conds.map(normalizeCond),
+    otherwise,
+    otherwiseMode: 'text',
+    otherwiseIsXpath: false,
+    otherwiseField: '',
+    otherwiseTransform: 'none',
+    otherwiseTransformParam: '',
+    concatParts: [],
+    concatSep: ' ',
+    xpathExpr: '',
+    condCollapsed: false,
+    aggRole: '',
+    concatAggSep: ', '
+  };
+}
+
+function saveConfig() {
+  const config = {
+    version: 4,
+    format: S.format,
+    delimiter: S.delimiter,
+    includeHeader: S.includeHeader,
+    csvQuote: S.csvQuote,
+    fixedWidths: S.fixedWidths,
+    fixedPad: S.fixedPad,
+    jsonMode: S.jsonMode,
+    jsonIndent: S.jsonIndent,
+    htmlClass: S.htmlClass,
+    htmlInlineStyle: S.htmlInlineStyle,
+    htmlFullPage: S.htmlFullPage,
+    xmlRoot: S.xmlRoot,
+    xmlRow: S.xmlRow,
+    xmlIndent: S.xmlIndent,
+    repeatingGroups: [...(S.repeatingGroups || [])],
+    groupingEnabled: S.groupingEnabled || false,
+    xlsxQuote: S.xlsxQuote !== false,
+    comments: {
+      purpose: document.getElementById('cmt-purpose')?.value || '',
+      author:  document.getElementById('cmt-author')?.value  || '',
+      target:  document.getElementById('cmt-target')?.value  || '',
+      report:  document.getElementById('cmt-report')?.value  || '',
+      notes:   document.getElementById('cmt-notes')?.value   || ''
+    },
+    cols: S.cols.map(c => ({
+      srcType: c.srcType, name: c.name, fp: c.fp, fixed: c.fixed,
+      transform: c.transform, transformParam: c.transformParam, transformParam2: c.transformParam2,
+      conds: c.conds, otherwise: c.otherwise, otherwiseIsXpath: c.otherwiseIsXpath,
+      concatParts: c.concatParts, concatSep: c.concatSep, xpathExpr: c.xpathExpr,
+      aggRole: c.aggRole || '', concatAggSep: c.concatAggSep != null ? c.concatAggSep : ', '
+    }))
+  };
+  const name = S.fileName.replace(/\.xml$/i, '') + '_mapper_config.json';
+  saveFile(JSON.stringify(config, null, 2), name, 'application/json');
+}
+
+function loadConfig(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const config = JSON.parse(e.target.result);
+      if (!config.cols || !Array.isArray(config.cols)) {
+        showError('Invalid config file — no column mappings found.');
+        return;
+      }
+      pushUndo('Load config');
+
+      if (config.format) { S.format = config.format; setFmt(config.format); }
+      if (config.delimiter != null) S.delimiter = config.delimiter;
+      if (config.includeHeader != null) S.includeHeader = config.includeHeader;
+      if (config.csvQuote != null) S.csvQuote = config.csvQuote;
+      if (config.fixedWidths) S.fixedWidths = config.fixedWidths;
+      if (config.fixedPad != null) S.fixedPad = config.fixedPad;
+      if (config.jsonMode) S.jsonMode = config.jsonMode;
+      if (config.jsonIndent != null) S.jsonIndent = config.jsonIndent;
+      if (config.htmlClass != null) S.htmlClass = config.htmlClass;
+      if (config.htmlInlineStyle != null) S.htmlInlineStyle = config.htmlInlineStyle;
+      if (config.htmlFullPage != null) S.htmlFullPage = config.htmlFullPage;
+      if (config.xmlRoot) S.xmlRoot = config.xmlRoot;
+      if (config.xmlRow) S.xmlRow = config.xmlRow;
+      if (config.xmlIndent != null) S.xmlIndent = config.xmlIndent;
+      if (config.repeatingGroups) { S.repeatingGroups = new Set(config.repeatingGroups); }
+      if (config.groupingEnabled != null) { S.groupingEnabled = config.groupingEnabled; }
+      if (config.xlsxQuote != null) {
+        S.xlsxQuote = config.xlsxQuote;
+        const xq = document.getElementById('chk-xlsx-quote');
+        if (xq) xq.checked = config.xlsxQuote;
+      }
+
+      const _si = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+      _si('chk-header',     S.includeHeader);
+      _si('chk-quote',      S.csvQuote);
+      _si('chk-fw-header',  S.includeHeader);
+      _si('chk-json-indent',S.jsonIndent);
+      _si('chk-html-style', S.htmlInlineStyle);
+      _si('chk-html-full',  S.htmlFullPage);
+      _si('chk-xml-indent', S.xmlIndent);
+      _si('chk-xlsx-header',S.includeHeader);
+
+      const _dc = document.getElementById('delim-custom');
+      if (_dc) _dc.value = S.delimiter === '\t' ? '\\t' : S.delimiter;
+
+      const _xmlRoot = document.getElementById('xml-root'); if (_xmlRoot) _xmlRoot.value = S.xmlRoot || 'Records';
+      const _xmlRow  = document.getElementById('xml-row');  if (_xmlRow)  _xmlRow.value  = S.xmlRow  || 'Record';
+      const _htmlCls = document.getElementById('html-class');if (_htmlCls) _htmlCls.value = S.htmlClass || 'report-table';
+
+      if (config.comments) {
+        const cm = config.comments;
+        ['purpose','author','target','report','notes'].forEach(k => {
+          const el = document.getElementById('cmt-' + k);
+          if (el && cm[k] != null) el.value = cm[k];
+        });
+        refreshXsltComments();
+      }
+
+      S.cols = config.cols.map(c => ({
+        id: S.nid++,
+        srcType: c.srcType || 'field',
+        name: c.name || '',
+        fp: c.fp || '',
+        fixed: c.fixed || '',
+        transform: c.transform || 'none',
+        transformParam: c.transformParam || '',
+        transformParam2: c.transformParam2 || '',
+        conds: (c.conds || []).map(normalizeCond),
+        otherwise: c.otherwise || '',
+        otherwiseIsXpath: c.otherwiseIsXpath || false,
+        concatParts: c.concatParts || [],
+        concatSep: c.concatSep != null ? c.concatSep : ' ',
+        xpathExpr: c.xpathExpr || '',
+        condCollapsed: false,
+        aggRole: c.aggRole || '',
+        concatAggSep: c.concatAggSep != null ? c.concatAggSep : ', '
+      }));
+      renderAll();
+
+      if (S.groupingEnabled) {
+        const badge = document.getElementById('agg-active-badge');
+        if (badge) badge.style.display = 'inline-flex';
+        if (document.getElementById('agg-body')?.style.display !== 'none') renderAggTable();
+      }
+
+      ['step3','step35','step4','step5','step6'].forEach(id => show(id));
+    } catch (err) {
+      showError('Failed to parse config file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function renderInfo() {
+
+  document.getElementById('upload-zone').style.display = 'none';
+  const loaded = document.getElementById('upload-loaded');
+  loaded.classList.add('on');
+  document.getElementById('ul-file').textContent = S.fileName;
+  const nsShort = S.nsURI.replace('urn:com.workday.report/', '');
+  const ns = nsShort || S.nsURI || '';
+  document.getElementById('ul-meta').textContent =
+    `${S.allEntries.length.toLocaleString()} entries` + (ns ? ` · NS: ${ns}` : '');
+
+  document.getElementById('info-bar').classList.add('on');
+  document.getElementById('i-file').textContent = S.fileName;
+  document.getElementById('i-ns').textContent = ns;
+  document.getElementById('i-count').textContent = S.allEntries.length;
+  updateChildGroupHint();
+}
+
+function resetUpload() {
+  document.getElementById('upload-zone').style.display = 'flex';
+  document.getElementById('upload-loaded').classList.remove('on');
+  document.getElementById('info-bar').classList.remove('on');
+  document.getElementById('config-bar').style.display = 'none';
+  document.getElementById('error-banner').classList.remove('on');
+  ['step2','step3','step35','step4','step5','step6'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  S.groupingEnabled = false;
+  S.fileName = ''; S.nsURI = ''; S.allEntries = []; S.entries = []; S.fields = []; S.cols = []; S.repeatingGroups = new Set();
+  document.getElementById('xslt-area').style.display = 'none';
+  document.getElementById('xslt-area').value = '';
+  document.getElementById('file-input').value = '';
+}
+
+function renderFields() {
+  const wrap = document.getElementById('fields-wrap');
+  wrap.innerHTML = '';
+
+  const visibleFields = S.fields.filter(f => !f.isWID);
+  for (const f of visibleFields) {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.setAttribute('role', 'listitem');
+    c.setAttribute('tabindex', '0');
+    c.setAttribute('aria-label', `Add field ${f.path} as output column`);
+    c.title = `XPath: ${f.xpath}\nSample: ${f.samples[0] || '—'}`;
+    c.innerHTML = `<span class="plus">＋</span><span>${esc(f.path)}</span>${
+      f.samples[0] ? `<span class="smp">"${esc(f.samples[0])}"</span>` : ''}`;
+    c.onclick = () => { pushUndo('Add field'); addColFromField(f); };
+    c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pushUndo('Add field'); addColFromField(f); } };
+    wrap.appendChild(c);
+  }
+
+  const widCount = S.fields.length - visibleFields.length;
+  if (widCount > 0) {
+    const note = document.createElement('span');
+    note.style.cssText = 'font-size:.75rem;color:#a0aec0;padding:5px 10px;display:inline-flex;align-items:center';
+    note.textContent = `${widCount} WID field${widCount > 1 ? 's' : ''} hidden (available in column dropdowns)`;
+    wrap.appendChild(note);
+  }
+}
+
+function renderCols() {
+  const tbody = document.getElementById('cols-body');
+  tbody.innerHTML = '';
+  document.getElementById('cols-empty').style.display = S.cols.length ? 'none' : 'block';
+
+  S.cols.forEach((col, idx) => {
+    const tr = document.createElement('tr');
+
+    const tdMove = el('td');
+    tdMove.innerHTML = `<div style="display:flex;flex-direction:column;gap:2px">
+      <button class="btn btn-sm btn-secondary" style="padding:2px 6px" onclick="pushUndo('Reorder');mvCol(${col.id},-1)" aria-label="Move up"${idx===0?' disabled':''}>▲</button>
+      <button class="btn btn-sm btn-secondary" style="padding:2px 6px" onclick="pushUndo('Reorder');mvCol(${col.id},1)" aria-label="Move down"${idx===S.cols.length-1?' disabled':''}>▼</button>
+    </div>`;
+    tr.appendChild(tdMove);
+
+    const tdName = el('td');
+    tdName.innerHTML = `<input type="text" value="${esc(col.name)}" aria-label="Column name"
+      onchange="upd(${col.id},'name',this.value)" oninput="upd(${col.id},'name',this.value)">`;
+    tr.appendChild(tdName);
+
+    const tdSrc = el('td');
+    tdSrc.innerHTML = `<select onchange="pushUndo('Change type');updSrc(${col.id},this.value)" aria-label="Source type">
+      <option value="fixed"${col.srcType==='fixed'?' selected':''}>Fixed</option>
+      <option value="field"${col.srcType==='field'?' selected':''}>Field</option>
+      <option value="conditional"${col.srcType==='conditional'?' selected':''}>Conditional</option>
+      <option value="concat"${col.srcType==='concat'?' selected':''}>Concat</option>
+      <option value="xpath"${col.srcType==='xpath'?' selected':''}>XPath Expr</option>
+    </select>`;
+    tr.appendChild(tdSrc);
+
+    const tdEdit = el('td');
+    tdEdit.innerHTML = renderEditor(col);
+    tr.appendChild(tdEdit);
+
+    const tdTr = el('td');
+    if (col.srcType === 'field') {
+      const needsP1 = ['pad-left-num','pad-right-str','substr','replace-regex','num-custom','math-add','math-subtract','math-multiply','math-divide','date-year-add'].includes(col.transform);
+      const needsP2 = ['substr','replace-regex'].includes(col.transform);
+      const p1label = {
+        'pad-left-num':'Length','pad-right-str':'Length',
+        'substr':'Start pos','replace-regex':'Pattern','num-custom':'Pattern',
+        'math-add':'Add value','math-subtract':'Subtract value',
+        'math-multiply':'Multiply by','math-divide':'Divide by',
+        'date-year-add':'+ or - years (e.g. 1 or -1)'
+      }[col.transform] || '';
+      const p2label = {'substr':'Length','replace-regex':'Replacement'}[col.transform] || '';
+      tdTr.innerHTML = `<select onchange="upd(${col.id},'transform',this.value);renderAll()" aria-label="Transform">
+        <optgroup label="── Basic ──">
+          <option value="none"${col.transform==='none'?' selected':''}>None (raw)</option>
+          <option value="uppercase"${col.transform==='uppercase'?' selected':''}>UPPERCASE</option>
+          <option value="lowercase"${col.transform==='lowercase'?' selected':''}>lowercase</option>
+          <option value="trim"${col.transform==='trim'?' selected':''}>Trim whitespace</option>
+        </optgroup>
+        <optgroup label="── Date Formats ──">
+          <option value="date-mdy"${col.transform==='date-mdy'?' selected':''}>Date MM/DD/YYYY</option>
+          <option value="date-ymd"${col.transform==='date-ymd'?' selected':''}>Date YYYY-MM-DD</option>
+          <option value="date-yyyymmdd"${col.transform==='date-yyyymmdd'?' selected':''}>Date YYYYMMDD</option>
+          <option value="plan-year"${col.transform==='plan-year'?' selected':''}>Year (YYYY)</option>
+        </optgroup>
+        <optgroup label="── Date Parts ──">
+          <option value="date-year"${col.transform==='date-year'?' selected':''}>Year only (YYYY)</option>
+          <option value="date-month"${col.transform==='date-month'?' selected':''}>Extract Month (MM)</option>
+          <option value="date-day"${col.transform==='date-day'?' selected':''}>Extract Day (DD)</option>
+          <option value="date-month-name"${col.transform==='date-month-name'?' selected':''}>Month Name (January…)</option>
+          <option value="date-year-add"${col.transform==='date-year-add'?' selected':''}>Year +/- N…</option>
+        </optgroup>
+        <optgroup label="── DateTime / Time ──">
+          <option value="date-only"${col.transform==='date-only'?' selected':''}>Date only (strip time)</option>
+          <option value="time-only"${col.transform==='time-only'?' selected':''}>Time only (HH:MM:SS)</option>
+          <option value="time-hhmm"${col.transform==='time-hhmm'?' selected':''}>Time HH:MM only</option>
+          <option value="datetime-mdy"${col.transform==='datetime-mdy'?' selected':''}>DateTime MM/DD/YYYY HH:MM:SS</option>
+          <option value="datetime-ymd"${col.transform==='datetime-ymd'?' selected':''}>DateTime YYYY-MM-DD HH:MM:SS</option>
+          <option value="timezone"${col.transform==='timezone'?' selected':''}>Timezone offset (+/-HH:MM)</option>
+        </optgroup>
+        <optgroup label="── Arithmetic ──">
+          <option value="math-add"${col.transform==='math-add'?' selected':''}>Add (+N)…</option>
+          <option value="math-subtract"${col.transform==='math-subtract'?' selected':''}>Subtract (-N)…</option>
+          <option value="math-multiply"${col.transform==='math-multiply'?' selected':''}>Multiply (×N)…</option>
+          <option value="math-divide"${col.transform==='math-divide'?' selected':''}>Divide (÷N)…</option>
+        </optgroup>
+        <optgroup label="── Number Formats ──">
+          <option value="num-2dp"${col.transform==='num-2dp'?' selected':''}>Number 0.00</option>
+          <option value="num-int"${col.transform==='num-int'?' selected':''}>Integer</option>
+          <option value="num-abs-2dp"${col.transform==='num-abs-2dp'?' selected':''}>Abs value 0.00</option>
+          <option value="num-comma"${col.transform==='num-comma'?' selected':''}>Number #,##0.00</option>
+          <option value="num-custom"${col.transform==='num-custom'?' selected':''}>Number (custom pattern)…</option>
+          <option value="round"${col.transform==='round'?' selected':''}>Round</option>
+          <option value="abs"${col.transform==='abs'?' selected':''}>Abs (raw)</option>
+          <option value="floor"${col.transform==='floor'?' selected':''}>Floor</option>
+          <option value="ceiling"${col.transform==='ceiling'?' selected':''}>Ceiling</option>
+        </optgroup>
+        <optgroup label="── Strings ──">
+          <option value="strip-non-digits"${col.transform==='strip-non-digits'?' selected':''}>Strip non-digits</option>
+          <option value="replace-regex"${col.transform==='replace-regex'?' selected':''}>Replace (regex)…</option>
+          <option value="substr"${col.transform==='substr'?' selected':''}>Substring…</option>
+          <option value="pad-left-num"${col.transform==='pad-left-num'?' selected':''}>Pad left with zeros…</option>
+          <option value="pad-right-str"${col.transform==='pad-right-str'?' selected':''}>Pad right with spaces…</option>
+        </optgroup>
+        <optgroup label="── Special ──">
+          <option value="zoned-decimal"${col.transform==='zoned-decimal'?' selected':''}>Zoned decimal</option>
+          <option value="boolean-yn"${col.transform==='boolean-yn'?' selected':''}>Boolean → Y/N</option>
+        </optgroup>
+      </select>${needsP1 ? `<input type="text" value="${esc(col.transformParam)}" placeholder="${p1label}"
+        style="margin-top:4px" onchange="upd(${col.id},'transformParam',this.value)" oninput="upd(${col.id},'transformParam',this.value)">` : ''}${needsP2 ? `<input type="text" value="${esc(col.transformParam2)}" placeholder="${p2label}"
+        style="margin-top:4px" onchange="upd(${col.id},'transformParam2',this.value)" oninput="upd(${col.id},'transformParam2',this.value)">` : ''}`;
+    } else {
+      tdTr.innerHTML = '<span style="color:#cbd5e0;font-size:.8rem">—</span>';
+    }
+    tr.appendChild(tdTr);
+
+    const tdDel = el('td');
+    tdDel.innerHTML = `<button class="btn btn-danger btn-sm" onclick="confirmDelCol(${col.id},'${esc(col.name)}')" title="Remove column" aria-label="Remove column ${esc(col.name)}">✕</button>`;
+    tr.appendChild(tdDel);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function fieldOptions(selectedPath) {
+  const regular = S.fields.filter(f => !f.isWID);
+  const wids = S.fields.filter(f => f.isWID);
+  let html = regular.map(f =>
+    `<option value="${esc(f.path)}"${selectedPath===f.path?' selected':''}>${esc(f.path)}</option>`
+  ).join('');
+  if (wids.length) {
+    html += `<optgroup label="── WID (internal IDs) ──">` +
+      wids.map(f => `<option value="${esc(f.path)}"${selectedPath===f.path?' selected':''}>${esc(f.path)}</option>`).join('') +
+      `</optgroup>`;
+  }
+  return html;
+}
+
+function renderEditor(col) {
+  if (col.srcType === 'fixed') {
+    return `<input type="text" value="${esc(col.fixed)}" placeholder="Fixed value (e.g. 32038)"
+      onchange="upd(${col.id},'fixed',this.value)" oninput="upd(${col.id},'fixed',this.value)">`;
+  }
+  if (col.srcType === 'field') {
+    return `<select onchange="upd(${col.id},'fp',this.value)" aria-label="Source field">
+      <option value="">— select field —</option>${fieldOptions(col.fp)}</select>`;
+  }
+  if (col.srcType === 'conditional') {
+    return renderCondEditor(col);
+  }
+  if (col.srcType === 'concat') {
+    return renderConcatEditor(col);
+  }
+  if (col.srcType === 'xpath') {
+    return renderXPathEditor(col);
+  }
+  return '';
+}
+
+function renderXPathEditor(col) {
+  let errClass = '';
+  let errHint = '';
+  if (col.xpathExpr) {
+    const validation = validateXPath(col.xpathExpr);
+    if (!validation.valid) {
+      errClass = ' xpath-err';
+      errHint = `<div class="xpath-hint">⚠ ${esc(validation.msg)}</div>`;
+    }
+  }
+  return `<div>
+    <input type="text" class="${errClass}" value="${esc(col.xpathExpr)}" placeholder="e.g. concat(wd:Worker_group/wd:Last_Name,', ',wd:Worker_group/wd:First_Name)"
+      onchange="upd(${col.id},'xpathExpr',this.value);renderAll()" oninput="upd(${col.id},'xpathExpr',this.value)">
+    ${errHint}
+    <div style="font-size:.72rem;color:#a0aec0;margin-top:3px">Full XPath 3.0 — use <code>wd:</code> prefix for all Workday elements</div>
+  </div>`;
+}
+
+function validateXPath(expr) {
+  if (!expr.trim()) return { valid: true, msg: '' };
+  try {
+
+    if (S.entries.length) {
+      const ns = S.nsURI;
+      document.evaluate(expr, S.entries[0], p => p === 'wd' ? ns : null, XPathResult.STRING_TYPE, null);
+    }
+    return { valid: true, msg: '' };
+  } catch (e) {
+    return { valid: false, msg: e.message.substring(0, 80) };
+  }
+}
+
+function condTransformOpts(selected) {
+  const opts = [
+    ['none','None (raw)'],['uppercase','UPPERCASE'],['lowercase','lowercase'],
+    ['date-mdy','Date MM/DD/YYYY'],['date-ymd','Date YYYY-MM-DD'],['date-yyyymmdd','YYYYMMDD'],
+    ['date-year','Year (YYYY)'],['date-month','Month (MM)'],['date-day','Day (DD)'],
+    ['date-year-add','Year +/- N'],
+    ['date-only','Date only (strip time)'],['time-only','Time HH:MM:SS'],['time-hhmm','Time HH:MM'],
+    ['datetime-mdy','DateTime MM/DD/YYYY HH:MM:SS'],['datetime-ymd','DateTime YYYY-MM-DD HH:MM:SS'],
+    ['timezone','Timezone offset'],
+    ['num-2dp','Number 0.00'],['num-int','Integer'],['num-comma','#,##0.00'],
+    ['math-add','Add (+N)'],['math-subtract','Subtract (-N)'],['math-multiply','Multiply (×N)'],['math-divide','Divide (÷N)'],
+    ['round','Round'],['abs','Abs'],['strip-non-digits','Digits only'],
+    ['pad-left-num','Pad left 0s'],['trim','Trim'],['boolean-yn','Y/N']
+  ];
+  return opts.map(([v,l]) => `<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('');
+}
+
+function condOutputHtml(colId, condIdx, c) {
+  const mode = c.outMode || 'text';
+  const needsParam = ['math-add','math-subtract','math-multiply','math-divide','date-year-add','pad-left-num'].includes(c.outTransform);
+  let html = `<div style="display:flex;gap:4px;align-items:flex-start;margin-top:6px;flex-wrap:wrap">
+    <label style="font-size:.72rem;color:#718096;font-weight:600;padding-top:4px">→</label>
+    <select onchange="updCond(${colId},${condIdx},'outMode',this.value);renderAll()" style="width:auto;min-width:60px;font-size:.72rem;padding:2px 4px" aria-label="Output mode">
+      <option value="text"${mode==='text'?' selected':''}>Text</option>
+      <option value="field"${mode==='field'?' selected':''}>Field</option>
+      <option value="xpath"${mode==='xpath'?' selected':''}>XPath</option>
+    </select>`;
+
+  if (mode === 'text') {
+    html += `<input type="text" value="${esc(c.out)}" placeholder="static output value"
+      onchange="updCond(${colId},${condIdx},'out',this.value)" oninput="updCond(${colId},${condIdx},'out',this.value)"
+      style="flex:1;min-width:80px" aria-label="Output value">`;
+  } else if (mode === 'field') {
+    html += `<select onchange="updCond(${colId},${condIdx},'outField',this.value);refreshPreview()" style="flex:1;min-width:100px" aria-label="Output field">
+      <option value="">—field—</option>${fieldOptions(c.outField || '')}
+    </select>
+    <select onchange="updCond(${colId},${condIdx},'outTransform',this.value);renderAll()" style="width:auto;min-width:90px;font-size:.78rem" aria-label="Output transform">
+      ${condTransformOpts(c.outTransform || 'none')}
+    </select>`;
+    if (needsParam) {
+      const pLabel = {'math-add':'+ value','math-subtract':'- value','math-multiply':'× value','math-divide':'÷ value','date-year-add':'+/- years','pad-left-num':'length'}[c.outTransform] || 'param';
+      html += `<input type="text" value="${esc(c.outTransformParam || '')}" placeholder="${pLabel}"
+        onchange="updCond(${colId},${condIdx},'outTransformParam',this.value)" oninput="updCond(${colId},${condIdx},'outTransformParam',this.value)"
+        style="width:60px;font-size:.78rem" aria-label="Transform parameter">`;
+    }
+  } else {
+
+    html += `<input type="text" value="${esc(c.out)}" placeholder="XPath expression"
+      onchange="updCond(${colId},${condIdx},'out',this.value)" oninput="updCond(${colId},${condIdx},'out',this.value)"
+      style="flex:1;min-width:120px" aria-label="XPath expression">`;
+  }
+  html += `<button class="btn btn-danger btn-sm" onclick="pushUndo('Remove condition');rmCond(${colId},${condIdx})" aria-label="Remove condition" style="padding:3px 7px">✕</button>
+  </div>`;
+  return html;
+}
+
+function otherwiseOutputHtml(col) {
+  const mode = col.otherwiseMode || (col.otherwiseIsXpath ? 'xpath' : 'text');
+  const needsParam = ['math-add','math-subtract','math-multiply','math-divide','date-year-add','pad-left-num'].includes(col.otherwiseTransform);
+  let html = `<div class="otherwise-row" style="flex-wrap:wrap">
+    <label style="font-size:.75rem;color:#718096;font-weight:600">OTHERWISE →</label>
+    <select onchange="upd(${col.id},'otherwiseMode',this.value);renderAll()" style="width:auto;min-width:60px;font-size:.72rem;padding:2px 4px">
+      <option value="text"${mode==='text'?' selected':''}>Text</option>
+      <option value="field"${mode==='field'?' selected':''}>Field</option>
+      <option value="xpath"${mode==='xpath'?' selected':''}>XPath</option>
+    </select>`;
+
+  if (mode === 'text') {
+    html += `<input type="text" value="${esc(col.otherwise)}" placeholder="default output value"
+      onchange="upd(${col.id},'otherwise',this.value)" oninput="upd(${col.id},'otherwise',this.value)" style="flex:1">`;
+  } else if (mode === 'field') {
+    html += `<select onchange="upd(${col.id},'otherwiseField',this.value);refreshPreview()" style="flex:1;min-width:100px">
+      <option value="">—field—</option>${fieldOptions(col.otherwiseField || '')}
+    </select>
+    <select onchange="upd(${col.id},'otherwiseTransform',this.value);renderAll()" style="width:auto;min-width:90px;font-size:.78rem">
+      ${condTransformOpts(col.otherwiseTransform || 'none')}
+    </select>`;
+    if (needsParam) {
+      const pLabel = {'math-add':'+ value','math-subtract':'- value','math-multiply':'× value','math-divide':'÷ value','date-year-add':'+/- years','pad-left-num':'length'}[col.otherwiseTransform] || 'param';
+      html += `<input type="text" value="${esc(col.otherwiseTransformParam || '')}" placeholder="${pLabel}"
+        onchange="upd(${col.id},'otherwiseTransformParam',this.value)" oninput="upd(${col.id},'otherwiseTransformParam',this.value)"
+        style="width:60px;font-size:.78rem">`;
+    }
+  } else {
+    html += `<input type="text" value="${esc(col.otherwise)}" placeholder="XPath expression"
+      onchange="upd(${col.id},'otherwise',this.value)" oninput="upd(${col.id},'otherwise',this.value)" style="flex:1">`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderCondEditor(col) {
+  const OPS = [
+    ['contains','contains'],['not-contains','not contains'],
+    ['starts-with','starts-with'],['ends-with','ends-with'],
+    ['matches','matches (regex)'],['equals','= equals'],['not-equals','≠ not equals'],
+    ['gt','&gt; greater'],['lt','&lt; less'],['gte','≥ gte'],['lte','≤ lte'],
+    ['exists','exists (no value)'],['empty','empty (no value)']
+  ];
+  const noVal = ['exists','empty'];
+  const condCount = col.conds.length;
+  const isCollapsed = col.condCollapsed && condCount > 3;
+
+  if (isCollapsed) {
+    const summary = condCount + ' condition' + (condCount === 1 ? '' : 's') +
+      (col.otherwise ? `, otherwise "${col.otherwise}"` : '');
+    return `<div class="cond-box">
+      <div class="cond-summary" onclick="toggleCondCollapse(${col.id})">
+        <span class="arrow">▶</span>
+        <span>${esc(summary)}</span>
+        <span style="color:#a0aec0;font-size:.72rem;margin-left:auto">click to expand</span>
+      </div>
+    </div>`;
+  }
+
+  let html = `<div class="cond-box">`;
+
+  if (condCount > 3) {
+    html += `<div style="text-align:right;margin-bottom:6px">
+      <button class="btn btn-sm btn-secondary" onclick="toggleCondCollapse(${col.id})" style="font-size:.72rem">▼ Collapse</button>
+    </div>`;
+  }
+  col.conds.forEach((c, i) => {
+    const groups = c.groups || [];
+    const groupLogic = c.groupLogic || 'and';
+    html += `<div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-bottom:8px;background:#fff">`;
+    html += `<div style="font-size:.7rem;font-weight:700;color:#6d28d9;margin-bottom:6px">WHEN</div>`;
+
+    groups.forEach((grp, gi) => {
+      const grpLogic = grp.logic || 'and';
+
+      if (gi > 0) {
+        html += `<div class="cond-op-pill" style="margin:4px 0">
+          <select onchange="updGroupJoin(${col.id},${i},this.value);renderAll()" style="font-weight:700;color:#1e40af;border-color:#93c5fd;background:#eff6ff" aria-label="Join between groups">
+            <option value="and"${groupLogic==='and'?' selected':''}>AND</option>
+            <option value="or"${groupLogic==='or'?' selected':''}>OR</option>
+          </select>
+        </div>`;
+      }
+
+      html += `<div class="cond-tests-group">`;
+
+      html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span class="cond-bracket">(</span>
+        ${groups.length > 1 ? `<button class="btn btn-danger btn-sm" onclick="pushUndo('Remove group');rmCondTest(${col.id},${i},${gi},-1);renderAll()" style="padding:1px 5px;font-size:.7rem" title="Remove this bracket group">✕ group</button>` : ''}
+      </div>`;
+
+      grp.tests.forEach((t, ti) => {
+        const op = t.op || 'contains';
+        const hide = noVal.includes(op) ? 'style="display:none"' : '';
+
+        if (ti > 0) {
+          html += `<div class="cond-op-pill">
+            <select onchange="updGroupLogic(${col.id},${i},${gi},this.value);renderAll()" aria-label="Logic within group">
+              <option value="and"${grpLogic==='and'?' selected':''}>AND</option>
+              <option value="or"${grpLogic==='or'?' selected':''}>OR</option>
+            </select>
+          </div>`;
+        }
+
+        html += `<div class="cond-row" style="margin-bottom:2px;padding-left:16px">
+          <select onchange="updCondTest(${col.id},${i},${gi},${ti},'fp',this.value)" style="flex:2" aria-label="Field">
+            <option value="">—field—</option>
+            ${fieldOptions(t.fp)}
+          </select>
+          <select onchange="updCondTest(${col.id},${i},${gi},${ti},'op',this.value);renderAll()" style="flex:1.5" aria-label="Operator">
+            ${OPS.map(([v,l])=>`<option value="${v}"${op===v?' selected':''}>${l}</option>`).join('')}
+          </select>
+          <input type="text" value="${esc(t.has)}" placeholder="value"
+            onchange="updCondTest(${col.id},${i},${gi},${ti},'has',this.value)" oninput="updCondTest(${col.id},${i},${gi},${ti},'has',this.value)"
+            style="flex:2" ${hide} aria-label="Value">
+          ${ti > 0 ? `<button class="btn btn-danger btn-sm" onclick="pushUndo('Remove condition');rmCondTest(${col.id},${i},${gi},${ti})" style="padding:2px 6px">✕</button>` : ''}
+        </div>`;
+      });
+
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+        <span class="cond-bracket">)</span>
+        <button class="btn btn-sm btn-secondary" onclick="addCondTest(${col.id},${i},${gi})" style="font-size:.7rem;padding:2px 7px">＋ condition</button>
+      </div>`;
+      html += `</div>`;
+    });
+
+    html += `<div style="margin-top:6px">
+      <button class="btn btn-sm btn-secondary" onclick="addCondGroup(${col.id},${i})" style="font-size:.7rem;padding:2px 8px">＋ ( ) Add bracket group</button>
+    </div>`;
+
+    html += condOutputHtml(col.id, i, c);
+    html += `</div>`;
+  });
+  html += `<div><button class="btn btn-secondary btn-sm" onclick="addCond(${col.id})">＋ Add When</button></div>`;
+  html += otherwiseOutputHtml(col);
+  html += `</div>`;
+  return html;
+}
+
+function toggleCondCollapse(colId) {
+  const c = S.cols.find(c => c.id === colId); if (!c) return;
+  c.condCollapsed = !c.condCollapsed;
+  renderCols();
+}
+
+function renderConcatEditor(col) {
+  const trOpts = `<option value="none">None</option><option value="uppercase">UPPERCASE</option>
+    <option value="lowercase">lowercase</option><option value="trim">Trim</option>
+    <option value="date-mdy">Date MM/DD/YYYY</option><option value="num-2dp">Number 0.00</option>
+    <option value="strip-non-digits">Strip non-digits</option>`;
+  let html = `<div class="cond-box">
+    <div class="cond-row" style="margin-bottom:8px">
+      <label>Separator</label>
+      <input type="text" value="${esc(col.concatSep)}" placeholder="space, comma, etc."
+        onchange="upd(${col.id},'concatSep',this.value)" oninput="upd(${col.id},'concatSep',this.value)" style="max-width:100px">
+      <span style="font-size:.75rem;color:#a0aec0">(leave blank to concatenate directly)</span>
+    </div>`;
+  (col.concatParts || []).forEach((p, i) => {
+    html += `<div class="cond-row">
+      <label>#${i+1}</label>
+      <select onchange="updPart(${col.id},${i},'fp',this.value)" style="flex:3">
+        <option value="">—field—</option>
+        ${fieldOptions(p.fp)}
+      </select>
+      <select onchange="updPart(${col.id},${i},'transform',this.value)" style="flex:1.5">${
+        trOpts.replace(`value="${p.transform}"`, `value="${p.transform}" selected`)
+      }</select>
+      <button class="btn btn-danger btn-sm" onclick="pushUndo('Remove part');rmPart(${col.id},${i})">✕</button>
+    </div>`;
+  });
+  html += `<button class="btn btn-secondary btn-sm" onclick="addPart(${col.id})">＋ Add Field</button></div>`;
+  return html;
+}
+
+function addCol(srcType) {
+  pushUndo('Add column');
+  S.cols.push(mkCol(srcType, 'NEW_COL', '', '', 'none', [], ''));
+  renderAll();
+}
+function addColFromField(f) {
+  const name = f.path.split('/').pop().replace(/\[.+\]/, '').toUpperCase();
+  S.cols.push(mkCol('field', name, f.path, '', 'none', [], ''));
+  renderAll();
+}
+function confirmDelCol(id, name) {
+  pushUndo('Delete "' + (name || 'column') + '"');
+  S.cols = S.cols.filter(c => c.id !== id);
+  renderAll();
+  showUndo('Deleted "' + (name || 'column') + '" — press Undo or Ctrl+Z to restore');
+}
+function delCol(id) { S.cols = S.cols.filter(c => c.id !== id); renderAll(); }
+function mvCol(id, d) {
+  const i = S.cols.findIndex(c => c.id === id), j = i + d;
+  if (j < 0 || j >= S.cols.length) return;
+  [S.cols[i], S.cols[j]] = [S.cols[j], S.cols[i]];
+  renderAll();
+}
+function upd(id, k, v) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  c[k] = v; refreshPreview();
+}
+function updSrc(id, v) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  c.srcType = v; renderAll();
+}
+function addCond(id) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  pushUndo('Add condition');
+  c.conds.push({ groups: [{ logic: 'and', tests: [{ fp: '', op: 'contains', has: '' }] }], groupLogic: 'and', out: '', outMode: 'text', outField: '', outTransform: 'none', outTransformParam: '', outIsXpath: false }); renderAll();
+}
+function rmCond(id, i) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  c.conds.splice(i, 1); renderAll();
+}
+function updCond(id, i, k, v) {
+  const c = S.cols.find(c => c.id === id); if (!c || !c.conds[i]) return;
+  c.conds[i][k] = v; refreshPreview();
+}
+
+function updCondTest(colId, condIdx, grpIdx, testIdx, k, v) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx] || !c.conds[condIdx].groups[grpIdx]) return;
+  c.conds[condIdx].groups[grpIdx].tests[testIdx][k] = v; refreshPreview();
+}
+function addCondTest(colId, condIdx, grpIdx) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx] || !c.conds[condIdx].groups[grpIdx]) return;
+  pushUndo('Add condition');
+  c.conds[condIdx].groups[grpIdx].tests.push({ fp: '', op: 'contains', has: '' });
+  renderAll();
+}
+function rmCondTest(colId, condIdx, grpIdx, testIdx) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx]) return;
+  if (testIdx === -1) {
+
+    c.conds[condIdx].groups.splice(grpIdx, 1);
+  } else {
+    if (!c.conds[condIdx].groups[grpIdx]) return;
+    const grp = c.conds[condIdx].groups[grpIdx];
+    grp.tests.splice(testIdx, 1);
+    if (grp.tests.length === 0) c.conds[condIdx].groups.splice(grpIdx, 1);
+  }
+  renderAll();
+}
+function addCondGroup(colId, condIdx) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx]) return;
+  pushUndo('Add bracket group');
+  c.conds[condIdx].groups.push({ logic: 'and', tests: [{ fp: '', op: 'contains', has: '' }] });
+  renderAll();
+}
+function updGroupLogic(colId, condIdx, grpIdx, v) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx] || !c.conds[condIdx].groups[grpIdx]) return;
+  c.conds[condIdx].groups[grpIdx].logic = v; refreshPreview();
+}
+function updGroupJoin(colId, condIdx, v) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c || !c.conds[condIdx]) return;
+  c.conds[condIdx].groupLogic = v; refreshPreview();
+}
+function updOtherwise(id, isXpath) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  c.otherwiseIsXpath = isXpath; refreshPreview();
+}
+function addPart(id) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  pushUndo('Add concat part');
+  c.concatParts.push({ fp: '', transform: 'none' }); renderAll();
+}
+function rmPart(id, i) {
+  const c = S.cols.find(c => c.id === id); if (!c) return;
+  c.concatParts.splice(i, 1); renderAll();
+}
+function updPart(id, i, k, v) {
+  const c = S.cols.find(c => c.id === id); if (!c || !c.concatParts[i]) return;
+  c.concatParts[i][k] = v; refreshPreview();
+}
+
+function renderAll() { renderCols(); refreshPreview(); if (document.getElementById('agg-body')?.style.display !== 'none') renderAggTable(); }
+
+const FMT_EXTS = {csv:'csv', tsv:'txt', fixed:'txt', json:'json', html:'html', xml:'xml', xlsx:'csv'};
+const FMT_MIME = {csv:'text/csv', tsv:'text/plain', fixed:'text/plain', json:'application/json', html:'text/html', xml:'application/xml', xlsx:'text/csv'};
+
+function setFmt(fmt) {
+  S.format = fmt;
+  document.querySelectorAll('.fmt-card').forEach(c => {
+    const inp = c.querySelector('input');
+    const match = inp.value === fmt;
+    c.classList.toggle('active', match);
+    inp.checked = match;
+  });
+  ['csv','fixed','json','html','xml','xlsx'].forEach(f => {
+    const el = document.getElementById(`opt-${f}`);
+    if (el) el.style.display = (f === fmt || (f === 'csv' && fmt === 'tsv')) ? 'flex' : 'none';
+  });
+  const ext = FMT_EXTS[fmt] || 'txt';
+  const btn = document.getElementById('btn-dl-output');
+  if (btn) btn.textContent = fmt === 'xlsx' ? '⬇ Download Excel-ready CSV (.csv)' : `⬇ Download Output (.${ext})`;
+  if (fmt === 'fixed') renderFixedWidths();
+  refreshPreview();
+}
+
+function setDelim(d) {
+  S.delimiter = d;
+  const inp = document.getElementById('delim-custom');
+  if (inp && d !== inp.value) inp.value = d === '\t' ? '\\t' : d;
+  refreshPreview();
+}
+
+function renderFixedWidths() {
+  const wrap = document.getElementById('fixed-widths');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  S.cols.forEach(col => {
+    const w = S.fixedWidths[col.id] || 20;
+    const d = document.createElement('div');
+    d.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:.8rem';
+    d.innerHTML = `<span style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(col.name)}">${esc(col.name)}</span>
+      <input type="number" value="${w}" min="1" max="500" style="width:54px;padding:3px 5px;border:1px solid #cbd5e0;border-radius:4px;font-size:.8rem"
+        onchange="S.fixedWidths[${col.id}]=parseInt(this.value)||20;refreshPreview()"
+        oninput="S.fixedWidths[${col.id}]=parseInt(this.value)||20;refreshPreview()">`;
+    wrap.appendChild(d);
+  });
+}
+
+function setPreviewMode(mode) {
+  S.previewMode = mode;
+  document.getElementById('btn-prev-table').classList.toggle('active', mode === 'table');
+  document.getElementById('btn-prev-raw').classList.toggle('active', mode === 'raw');
+  refreshPreview();
+}
+
+function getVal(flatEntry, col) {
+
+  const node   = (flatEntry && flatEntry.node)   ? flatEntry.node   : flatEntry;
+  const parent = (flatEntry && flatEntry.parent)  ? flatEntry.parent : null;
+
+  if (col.srcType === 'fixed') return col.fixed;
+
+  if (col.srcType === 'field') {
+
+    const v = extractField(node, col.fp, col.transform, col.transformParam, col.transformParam2);
+    if (v !== '' || !parent) return v;
+    return extractField(parent, col.fp, col.transform, col.transformParam, col.transformParam2);
+  }
+
+  if (col.srcType === 'conditional') return evalCond(flatEntry, col);
+
+  if (col.srcType === 'concat') {
+    const parts = (col.concatParts || []).map(p => {
+      if (!p.fp) return '';
+      const v = extractField(node, p.fp, p.transform || 'none', '', '');
+      if (v !== '' || !parent) return v;
+      return extractField(parent, p.fp, p.transform || 'none', '', '');
+    }).filter(Boolean);
+    return parts.join(col.concatSep != null ? col.concatSep : ' ');
+  }
+
+  if (col.srcType === 'xpath') {
+    try {
+      const ns = S.nsURI;
+      const r = document.evaluate(col.xpathExpr, node, p => p==='wd'?ns:null, XPathResult.STRING_TYPE, null);
+      const v = r.stringValue;
+      if (v !== '' || !parent) return v;
+      const r2 = document.evaluate(col.xpathExpr, parent, p => p==='wd'?ns:null, XPathResult.STRING_TYPE, null);
+      return r2.stringValue;
+    } catch(e) { return `[XPath: ${e.message}]`; }
+  }
+  return '';
+}
+
+function extractField(entry, fp, transform, p1='', p2='') {
+  if (!fp) return '';
+  try {
+    const ns = S.nsURI;
+
+    let resolvedFp = fp;
+    if (S.repeatingGroups && S.repeatingGroups.size) {
+      for (const gp of S.repeatingGroups) {
+        if (fp.startsWith(gp + '/')) { resolvedFp = fp.slice(gp.length + 1); break; }
+        if (fp === gp) { resolvedFp = ''; break; }
+      }
+    }
+
+    const am = resolvedFp.match(/^(.+)\[(.+)\]$/);
+    if (am) {
+      const parentEl = navPath(entry, am[1], ns);
+      if (!parentEl) return '';
+
+      for (const id of parentEl.children) {
+        if (id.localName !== 'ID') continue;
+        const t = id.getAttributeNS(ns, 'type') || id.getAttribute('wd:type') || '';
+        if (t === am[2]) return doTransform(id.textContent.trim(), transform, p1, p2);
+      }
+      return '';
+    }
+    const elem = navPath(entry, resolvedFp, ns);
+    return elem ? doTransform(elem.textContent.trim(), transform, p1, p2) : '';
+  } catch { return ''; }
+}
+
+function navPath(root, path, ns) {
+  let current = root;
+  for (const seg of path.split('/')) {
+    if (!current) return null;
+    let found = null;
+
+    for (const child of current.children) {
+      if (child.localName === seg) {
+        found = child;
+        break;
+      }
+    }
+    current = found;
+  }
+  return current;
+}
+
+function doTransform(raw, t, p1='', p2='') {
+  if (raw == null) raw = '';
+  switch (t) {
+    case 'uppercase':       return raw.toUpperCase();
+    case 'lowercase':       return raw.toLowerCase();
+    case 'trim':            return raw.trim();
+    case 'date-mdy':        { const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[2]}/${m[3]}/${m[1]}`:raw; }
+    case 'date-ymd':        { const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:raw; }
+    case 'date-yyyymmdd':   { const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]}${m[2]}${m[3]}`:raw; }
+    case 'plan-year':       { const m=raw.match(/^(\d{4})/); return m?m[1]:raw; }
+    case 'date-year':       { const m=raw.match(/^(\d{4})/); return m?m[1]:raw; }
+    case 'date-month':      { const m=raw.match(/^\d{4}-(\d{2})/); return m?m[1]:raw; }
+    case 'date-day':        { const m=raw.match(/^\d{4}-\d{2}-(\d{2})/); return m?m[1]:raw; }
+    case 'date-month-name': { const m=raw.match(/^\d{4}-(\d{2})/); if(!m) return raw; const mn=['January','February','March','April','May','June','July','August','September','October','November','December']; return mn[parseInt(m[1])-1]||raw; }
+    case 'date-year-add':   { const m=raw.match(/^(\d{4})/); if(!m) return raw; const offset=parseInt(p1)||0; return String(parseInt(m[1])+offset); }
+    case 'date-only':       { const m=raw.match(/^(\d{4}-\d{2}-\d{2})/); return m?m[1]:raw; }
+    case 'time-only':       { const m=raw.match(/T(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/); return m?m[1]:''; }
+    case 'time-hhmm':       { const m=raw.match(/T(\d{2}:\d{2})/); return m?m[1]:''; }
+    case 'datetime-mdy':    { const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/); return m?`${m[2]}/${m[3]}/${m[1]} ${m[4]}:${m[5]}:${m[6]}`:raw; }
+    case 'datetime-ymd':    { const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`:raw; }
+    case 'timezone':        { const m=raw.match(/([+-]\d{2}:\d{2})$/); return m?m[1]:''; }
+    case 'math-add':        { const n=parseFloat(raw), v=parseFloat(p1); return (isNaN(n)||isNaN(v))?raw:String(n+v); }
+    case 'math-subtract':   { const n=parseFloat(raw), v=parseFloat(p1); return (isNaN(n)||isNaN(v))?raw:String(n-v); }
+    case 'math-multiply':   { const n=parseFloat(raw), v=parseFloat(p1); return (isNaN(n)||isNaN(v))?raw:String(n*v); }
+    case 'math-divide':     { const n=parseFloat(raw), v=parseFloat(p1); return (isNaN(n)||isNaN(v)||v===0)?raw:String(n/v); }
+    case 'num-2dp':         { const n=parseFloat(raw); return isNaN(n)?raw:n.toFixed(2); }
+    case 'num-int':         { const n=parseInt(raw); return isNaN(n)?raw:String(n); }
+    case 'num-abs-2dp':     { const n=parseFloat(raw); return isNaN(n)?raw:Math.abs(n).toFixed(2); }
+    case 'num-comma':       { const n=parseFloat(raw); return isNaN(n)?raw:n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    case 'num-custom':      { const n=parseFloat(raw); return isNaN(n)?raw:n.toFixed(2); /* approx */ }
+    case 'round':           { const n=parseFloat(raw); return isNaN(n)?raw:String(Math.round(n)); }
+    case 'abs':             { const n=parseFloat(raw); return isNaN(n)?raw:String(Math.abs(n)); }
+    case 'floor':           { const n=parseFloat(raw); return isNaN(n)?raw:String(Math.floor(n)); }
+    case 'ceiling':         { const n=parseFloat(raw); return isNaN(n)?raw:String(Math.ceil(n)); }
+    case 'strip-non-digits':return raw.replace(/[^0-9]/g,'');
+    case 'replace-regex':   { try { return raw.replace(new RegExp(p1,'g'),p2); } catch { return raw; } }
+    case 'substr':          { const s=Math.max(1,parseInt(p1)||1)-1, l=parseInt(p2); return l?raw.substr(s,l):raw.substr(s); }
+    case 'pad-left-num':    { const n=parseInt(p1)||0; return String(raw).padStart(n,'0'); }
+    case 'pad-right-str':   { const n=parseInt(p1)||0; return String(raw).padEnd(n,' '); }
+    case 'zoned-decimal':   {
+      const v=parseFloat(raw); if(isNaN(v)) return raw;
+      const r=Math.round(Math.abs(v)*100), s=String(r);
+      const pos='ABCDEFGHI{', neg='JKLMNOPQR}';
+      return s.slice(0,-1) + (v>=0?pos:neg)[parseInt(s.slice(-1))];
+    }
+    case 'boolean-yn':      { const lo=raw.toLowerCase(); return (lo==='true'||lo==='yes'||lo==='1')?'Y':'N'; }
+    default:                return raw;
+  }
+}
+
+function evalCond(flatEntry, col) {
+  const entry  = (flatEntry && flatEntry.node)   ? flatEntry.node   : flatEntry;
+  const parent = (flatEntry && flatEntry.parent)  ? flatEntry.parent : null;
+
+  function getTestVal(fp) {
+    const v = extractField(entry, fp, 'none', '', '');
+    if (v !== '' || !parent) return v;
+    return extractField(parent, fp, 'none', '', '');
+  }
+
+  for (const c of col.conds) {
+
+    const groups = c.groups && c.groups.length ? c.groups : [{ logic: c.logic || 'and', tests: c.tests || [] }];
+    const groupLogic = c.groupLogic || 'and';
+
+    const groupResults = groups.map(g => {
+      const tests = g.tests || [];
+      if (!tests.length || !tests[0].fp) return false;
+      const logic = g.logic || 'and';
+      const results = tests.map(t => {
+        if (!t.fp) return true;
+        const fv = getTestVal(t.fp);
+        return evalCondOp(fv, t.op || 'contains', t.has || '');
+      });
+      return logic === 'or' ? results.some(r => r) : results.every(r => r);
+    });
+
+    const match = groupLogic === 'or'
+      ? groupResults.some(r => r)
+      : groupResults.every(r => r);
+
+    if (match) return resolveCondOutput(entry, c, parent);
+  }
+  return resolveOtherwiseOutput(entry, col, parent);
+}
+
+function resolveCondOutput(entry, c, parent) {
+  const mode = c.outMode || 'text';
+  if (mode === 'field' && c.outField) {
+    const v = extractField(entry, c.outField, c.outTransform || 'none', c.outTransformParam || '', '');
+    if (v !== '' || !parent) return v;
+    return extractField(parent, c.outField, c.outTransform || 'none', c.outTransformParam || '', '');
+  }
+  if (mode === 'xpath' && c.out) {
+    try {
+      const ns = S.nsURI;
+      const r = document.evaluate(c.out, entry, p => p==='wd'?ns:null, XPathResult.STRING_TYPE, null);
+      return r.stringValue;
+    } catch(e) { return `[XPath: ${e.message}]`; }
+  }
+  return c.out || '';
+}
+
+function resolveOtherwiseOutput(entry, col, parent) {
+  const mode = col.otherwiseMode || (col.otherwiseIsXpath ? 'xpath' : 'text');
+  if (mode === 'field' && col.otherwiseField) {
+    const v = extractField(entry, col.otherwiseField, col.otherwiseTransform || 'none', col.otherwiseTransformParam || '', '');
+    if (v !== '' || !parent) return v;
+    return extractField(parent, col.otherwiseField, col.otherwiseTransform || 'none', col.otherwiseTransformParam || '', '');
+  }
+  if (mode === 'xpath' && col.otherwise) {
+    try {
+      const ns = S.nsURI;
+      const r = document.evaluate(col.otherwise, entry, p => p==='wd'?ns:null, XPathResult.STRING_TYPE, null);
+      return r.stringValue;
+    } catch(e) { return `[XPath: ${e.message}]`; }
+  }
+  return col.otherwise || '';
+}
+
+function evalCondOp(fv, op, pat) {
+  switch (op) {
+    case 'contains':      return fv.includes(pat);
+    case 'not-contains':  return !fv.includes(pat);
+    case 'starts-with':   return fv.startsWith(pat);
+    case 'ends-with':     return fv.endsWith(pat);
+    case 'matches':       { try { return new RegExp(pat).test(fv); } catch { return false; } }
+    case 'equals':        return fv === pat;
+    case 'not-equals':    return fv !== pat;
+    case 'gt':            return parseFloat(fv) > parseFloat(pat);
+    case 'lt':            return parseFloat(fv) < parseFloat(pat);
+    case 'gte':           return parseFloat(fv) >= parseFloat(pat);
+    case 'lte':           return parseFloat(fv) <= parseFloat(pat);
+    case 'exists':        return fv !== '';
+    case 'empty':         return fv === '';
+    default:              return fv.includes(pat);
+  }
+}
+
+function refreshPreview() {
+  if (!S.entries.length || !S.cols.length) return;
+  const fmt = S.format;
+  const tableWrap = document.getElementById('preview-table-wrap');
+  const rawArea   = document.getElementById('preview-raw');
+  const textArea  = document.getElementById('preview-text');
+  const toggleBar = document.getElementById('preview-toggle');
+
+  const useText = (fmt === 'json' || fmt === 'xml');
+
+  if (useText) {
+
+    tableWrap.style.display = 'none';
+    rawArea.style.display = 'none';
+    textArea.style.display = 'block';
+    toggleBar.style.display = 'none';
+    textArea.value = buildOutput(S.entries.slice(0, 10));
+    return;
+  }
+
+  toggleBar.style.display = 'flex';
+
+  if (S.previewMode === 'raw') {
+    tableWrap.style.display = 'none';
+    textArea.style.display = 'none';
+    rawArea.style.display = 'block';
+    rawArea.value = buildOutput(S.entries.slice(0, 10));
+  } else {
+    tableWrap.style.display = 'block';
+    textArea.style.display = 'none';
+    rawArea.style.display = 'none';
+
+    updateChildGroupHint();
+    const rawRows = S.entries.slice(0, 10);
+    const rows = S.groupingEnabled ? buildAggregatedEntries(rawRows) : getEffectiveEntries(rawRows);
+    const previewCols = S.groupingEnabled ? S.cols.filter(c => c.aggRole && c.aggRole !== '') : S.cols;
+    document.getElementById('prev-head').innerHTML =
+      '<tr>' + previewCols.map(c => `<th>${esc(c.name || '?')}</th>`).join('') + '</tr>';
+    const tbody = document.getElementById('prev-body');
+    tbody.innerHTML = '';
+    for (const entry of rows) {
+      const tr = document.createElement('tr');
+      for (const col of previewCols) {
+        const td = document.createElement('td');
+        td.textContent = S.groupingEnabled ? getAggVal(entry, col) : getVal(entry, col);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+}
+
+function getEffectiveEntries(rawEntries) {
+  if (!S.repeatingGroups || !S.repeatingGroups.size || !rawEntries.length) {
+    return rawEntries.map(e => ({ node: e, parent: null, groupPath: '' }));
+  }
+
+  const groupPath = [...S.repeatingGroups][0];
+  const groupLocalName = groupPath.split('/').pop();
+  const ns = S.nsURI;
+  const result = [];
+  function findGroupNodes(el, path, targetPath) {
+    for (const child of el.children) {
+      const childPath = path ? path + '/' + child.localName : child.localName;
+      if (childPath === targetPath) {
+        result.push({ node: child, parent: el, groupPath });
+      } else if (targetPath.startsWith(childPath + '/')) {
+        findGroupNodes(child, childPath, targetPath);
+      }
+    }
+  }
+  for (const entry of rawEntries) {
+    const before = result.length;
+    findGroupNodes(entry, '', groupPath);
+    if (result.length === before) result.push({ node: entry, parent: null, groupPath: '' });
+  }
+  return result;
+}
+function updateChildGroupHint() { /* no-op — auto-detect is silent */ }
+
+function buildOutput(entries) {
+  if (S.groupingEnabled && S.cols.some(c => c.aggRole === 'key')) {
+    return buildOutputWithAgg(entries || S.entries);
+  }
+  entries = getEffectiveEntries(entries || S.entries);
+  switch (S.format) {
+    case 'csv':
+    case 'tsv':   return buildDelimitedOutput(entries);
+    case 'fixed': return buildFixedOutput(entries);
+    case 'json':  return buildJSONOutput(entries);
+    case 'html':  return buildHTMLOutput(entries);
+    case 'xml':   return buildXMLOutput(entries);
+    case 'xlsx':  return buildSpreadsheetMLOutput(entries);
+    default:      return buildDelimitedOutput(entries);
+  }
+}
+
+function buildDelimitedOutput(entries) {
+  const sep = S.delimiter;
+  const quote = S.csvQuote;
+  const q = v => {
+    const s = String(v);
+    if (!quote) return s;
+    return (s.includes(sep) || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [];
+  if (S.includeHeader) lines.push(S.cols.map(c => q(c.name || '')).join(sep));
+  for (const e of entries) lines.push(S.cols.map(c => q(getVal(e, c))).join(sep));
+  return lines.join('\r\n');
+}
+
+function buildFixedOutput(entries) {
+  const pad = S.fixedPad || ' ';
+  const widths = S.cols.map(c => S.fixedWidths[c.id] || 20);
+  const fixVal = (v, w) => { const s = String(v); return s.length >= w ? s.slice(0, w) : s + pad.repeat(w - s.length); };
+  const lines = [];
+  if (S.includeHeader) lines.push(S.cols.map((c, i) => fixVal(c.name || '', widths[i])).join(''));
+  for (const e of entries) lines.push(S.cols.map((c, i) => fixVal(getVal(e, c), widths[i])).join(''));
+  return lines.join('\r\n');
+}
+
+function buildJSONOutput(entries) {
+  if (S.jsonMode === 'arrays') {
+    const data = [S.cols.map(c => c.name), ...entries.map(e => S.cols.map(c => getVal(e, c)))];
+    return S.jsonIndent ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+  }
+  const rows = entries.map(e => {
+    const obj = {};
+    S.cols.forEach(c => { obj[c.name || 'col'] = getVal(e, c); });
+    return obj;
+  });
+  return S.jsonIndent ? JSON.stringify(rows, null, 2) : JSON.stringify(rows);
+}
+
+function buildHTMLOutput(entries) {
+  const cls = S.htmlClass || 'report-table';
+  const style = S.htmlInlineStyle ? ' style="border-collapse:collapse;font-family:sans-serif;font-size:14px"' : '';
+  const thStyle = S.htmlInlineStyle ? ' style="background:#1a56db;color:#fff;padding:8px 12px;text-align:left"' : '';
+  const tdStyle = S.htmlInlineStyle ? ' style="padding:6px 12px;border-bottom:1px solid #e2e8f0"' : '';
+  const thead = `<thead><tr>${S.cols.map(c => `<th${thStyle}>${esc(c.name||'')}</th>`).join('')}</tr></thead>`;
+  const tbody = entries.map(e => `<tr>${S.cols.map(c=>`<td${tdStyle}>${esc(getVal(e,c))}</td>`).join('')}</tr>`).join('\n    ');
+  const table = `<table class="${cls}"${style}>\n  ${thead}\n  <tbody>\n    ${tbody}\n  </tbody>\n</table>`;
+  if (!S.htmlFullPage) return table;
+  return `<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"><title>Report</title></head>\n<body>\n${table}\n</body>\n</html>`;
+}
+
+function buildXMLOutput(entries) {
+  const root = xmlTag(S.xmlRoot || 'Records');
+  const row  = xmlTag(S.xmlRow  || 'Record');
+  const ind  = S.xmlIndent ? '  ' : '';
+  const nl   = S.xmlIndent ? '\n' : '';
+  const rows = entries.map(e => {
+    const fields = S.cols.map(c => `${ind}${ind}<${xmlTag(c.name||'col')}>${xmlEsc(getVal(e,c))}</${xmlTag(c.name||'col')}>`).join(nl);
+    return `${ind}<${row}>${nl}${fields}${nl}${ind}</${row}>`;
+  }).join(nl);
+  return `<?xml version="1.0" encoding="UTF-8"?>${nl}<${root}>${nl}${rows}${nl}</${root}>`;
+}
+
+function xmlTag(name) { return String(name).replace(/[^a-zA-Z0-9_\-.:]/g,'_').replace(/^([^a-zA-Z_:])/, '_$1'); }
+function xmlEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;'); }
+
+function buildSpreadsheetMLOutput(entries) {
+  const sep = ',';
+  const quote = S.xlsxQuote !== false;
+  const q = v => {
+    const s = String(v);
+    if (!quote) return s;
+    return (s.includes(sep) || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [];
+  if (S.includeHeader) lines.push(S.cols.map(c => q(c.name || '')).join(sep));
+  for (const e of entries) lines.push(S.cols.map(c => q(getVal(e, c))).join(sep));
+  return lines.join('\r\n');
+}
+
+function buildXSLT() {
+  switch (S.format) {
+    case 'csv':
+    case 'tsv':   return buildDelimitedXSLT();
+    case 'fixed': return buildFixedXSLT();
+    case 'json':  return buildJSONXSLT();
+    case 'html':  return buildHTMLXSLT();
+    case 'xml':   return buildXMLXSLT();
+    case 'xlsx':  return buildSpreadsheetMLXSLT();
+    default:      return buildDelimitedXSLT();
+  }
+}
+
+function buildXsltCommentBlock() {
+  const purpose = (document.getElementById('cmt-purpose')?.value || '').trim();
+  const author  = (document.getElementById('cmt-author')?.value  || '').trim();
+  const target  = (document.getElementById('cmt-target')?.value  || '').trim();
+  const report  = (document.getElementById('cmt-report')?.value  || '').trim();
+  const notes   = (document.getElementById('cmt-notes')?.value   || '').trim();
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:true });
+
+  const lines = [];
+  lines.push(`  Generated by  : RaaS to XSLT for EIB`);
+  lines.push(`  Generated on  : ${dateStr} at ${timeStr}`);
+  if (S.fileName)  lines.push(`  Source XML    : ${S.fileName}`);
+  if (purpose)     lines.push(`  Purpose       : ${purpose}`);
+  if (author)      lines.push(`  Author / Team : ${author}`);
+  if (target)      lines.push(`  Target System : ${target}`);
+  if (report)      lines.push(`  WD Report     : ${report}`);
+  if (notes) {
+    const noteLines = notes.split('\n').map((l, i) => i === 0 ? `  Notes         : ${l}` : `                  ${l}`);
+    lines.push(...noteLines);
+  }
+  lines.push(`  Output Format : ${(S.format || 'csv').toUpperCase()}`);
+  lines.push(`  Columns mapped: ${S.cols.length}`);
+
+  const border = '  ' + '═'.repeat(68);
+  return `<!--\n${border}\n${lines.join('\n')}\n${border}\n-->`;
+}
+
+function refreshXsltComments() {
+  const ta = document.getElementById('xslt-area');
+  if (ta && ta.style.display !== 'none') {
+    ta.value = buildXSLT();
+  }
+}
+
+function xsltHeader(method, extra='') {
+  const commentBlock = buildXsltCommentBlock();
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    exclude-result-prefixes="xs"
+    version="3.0"
+    xmlns:wd="${xesc(S.nsURI)}"
+    xmlns:this="urn:this-stylesheet">
+${commentBlock}
+    <xsl:output method="${method}" encoding="UTF-8"${extra}/>`;
+}
+
+function entrySelect() {
+  return `wd:Report_Data/wd:Report_Entry`;
+}
+function firstGroupPath() {
+  if (!S.repeatingGroups || !S.repeatingGroups.size) return '';
+  return [...S.repeatingGroups][0];
+}
+function innerLoopXSLT(body, indent) {
+  const gp = firstGroupPath();
+  if (!gp) return body;
+  const xp = gp.split('/').map(s => 'wd:' + s).join('/');
+  return `${indent}<xsl:for-each select="${xp}">
+${body}${indent}</xsl:for-each>
+`;
+}
+
+function isGroupingActive() {
+  return S.groupingEnabled && S.cols.some(c => c.aggRole === 'key');
+}
+
+function aggGroupByExpr() {
+  const keyCols = S.cols.filter(c => c.aggRole === 'key');
+  if (keyCols.length === 1) return fp2xpath(keyCols[0].fp || '');
+
+  const parts = keyCols.map(c => `string(${fp2xpath(c.fp || '')})`);
+  return `concat(${parts.join(", '|§|', ")})`;
+}
+
+function aggColXSLTExpr(col) {
+  const role = col.aggRole || '';
+  const xp   = col.fp ? fp2xpath(col.fp) : (col.fixed ? `'${xesc(col.fixed)}'` : "''");
+  switch (role) {
+    case 'key':    return colXSLTExpr(col);
+    case 'sum':    return `sum(current-group()/${xp})`;
+    case 'count':  return `count(current-group())`;
+    case 'avg':    return `format-number(sum(current-group()/${xp}) div count(current-group()), '0.####')`;
+    case 'min':    return `min(current-group()/${xp})`;
+    case 'max':    return `max(current-group()/${xp})`;
+    case 'first':  return `current-group()[1]/${xp}`;
+    case 'concat': {
+      const sep = xesc(col.concatAggSep != null ? col.concatAggSep : ', ');
+      return `string-join(current-group()/${xp}, '${sep}')`;
+    }
+    default: return colXSLTExpr(col);
+  }
+}
+
+function aggRowBodyXSLT(activeCols, sep, pad) {
+  let body = '';
+  activeCols.forEach((col, i) => {
+    const expr = aggColXSLTExpr(col);
+    body += `${pad}<xsl:value-of select="${expr}"/>\n`;
+    if (i < activeCols.length - 1 && sep) body += `${pad}<xsl:text>${sep}</xsl:text>\n`;
+  });
+  return body;
+}
+
+function aggForEachGroupXSLT(innerBody, indent) {
+  const groupBy  = aggGroupByExpr();
+  const outerSel = 'wd:Report_Data/wd:Report_Entry';
+  const grpPath  = firstGroupPath();
+  const innerSel = grpPath
+    ? `${grpPath.split('/').map(s=>'wd:'+s).join('/')}`
+    : null;
+
+  if (innerSel) {
+
+    return `${indent}<xsl:for-each select="${outerSel}">\n` +
+           `${indent}    <xsl:for-each-group select="${innerSel}" group-by="${groupBy}">\n` +
+           `${indent}        <xsl:sort select="${groupBy}"/>\n` +
+           innerBody +
+           `${indent}    </xsl:for-each-group>\n` +
+           `${indent}</xsl:for-each>\n`;
+  }
+  return `${indent}<xsl:for-each-group select="${outerSel}" group-by="${groupBy}">\n` +
+         `${indent}    <xsl:sort select="${groupBy}"/>\n` +
+         innerBody +
+         `${indent}</xsl:for-each-group>\n`;
+}
+
+function buildDelimitedXSLT() {
+  const rawSep = S.delimiter;
+  const sep = rawSep === '\t' ? '&#x9;' : xesc(rawSep);
+
+  if (isGroupingActive()) {
+
+    const activeCols = S.cols.filter(c => c.aggRole && c.aggRole !== '');
+    const hdr = activeCols.map(c => csvQ(c.name || '')).join(rawSep);
+    let rowBody = '';
+    activeCols.forEach((col, i) => {
+      rowBody += `            <xsl:value-of select="${aggColXSLTExpr(col)}"/>\n`;
+      if (i < activeCols.length - 1) rowBody += `            <xsl:text>${sep}</xsl:text>\n`;
+    });
+    rowBody += '            <xsl:value-of select="$linefeed"/>\n';
+    const aggLoop = aggForEachGroupXSLT(rowBody, '        ');
+    return `${xsltHeader('text', ' omit-xml-declaration="yes"')}
+    <xsl:variable name="linefeed" select="'&#xa;'"/>
+    <xsl:variable name="separator" select="'${sep}'"/>
+
+    <xsl:template match="/">
+        <xsl:text>${xesc(hdr)}</xsl:text>
+        <xsl:value-of select="$linefeed"/>
+${aggLoop}    </xsl:template>
+${UTIL_FNS}
+</xsl:stylesheet>`;
+  }
+
+  const hdr = S.cols.map(c => csvQ(c.name || '')).join(rawSep);
+  let body = '';
+  S.cols.forEach((col, i) => {
+    body += colXSLT(col, '            ');
+    if (i < S.cols.length - 1) body += `            <xsl:text>${sep}</xsl:text>\n`;
+  });
+  body += '            <xsl:value-of select="$linefeed"/>\n';
+  const outerSelect = entrySelect();
+  const innerLoop = innerLoopXSLT(body, '        ') || body;
+  return `${xsltHeader('text', ' omit-xml-declaration="yes"')}
+    <xsl:variable name="linefeed" select="'&#xa;'"/>
+    <xsl:variable name="separator" select="'${sep}'"/>
+
+    <xsl:template match="/">
+
+        <xsl:text>${xesc(hdr)}</xsl:text>
+        <xsl:value-of select="$linefeed"/>
+        <xsl:for-each select="${outerSelect}">
+${innerLoop}        </xsl:for-each>
+    </xsl:template>
+${UTIL_FNS}
+</xsl:stylesheet>`;
+}
+
+function buildFixedXSLT() {
+  const widths = S.cols.map(c => S.fixedWidths[c.id] || 20);
+  const hdr = S.cols.map((c, i) => (c.name||'').padEnd(widths[i]).slice(0, widths[i])).join('');
+  let body = '';
+  S.cols.forEach((col, i) => {
+    body += `            <xsl:value-of select="this:pad-string-to-length(string(${colXSLTExpr(col)}), ' ', ${widths[i]})"/>\n`;
+  });
+  body += '            <xsl:value-of select="$linefeed"/>\n';
+  const outerSelFixed = entrySelect();
+  const innerFixed = innerLoopXSLT(body, '        ') || body;
+  return `${xsltHeader('text', ' omit-xml-declaration="yes"')}
+    <xsl:variable name="linefeed" select="'&#xa;'"/>
+
+    <xsl:template match="/">
+        <xsl:text>${xesc(hdr)}</xsl:text>
+        <xsl:value-of select="$linefeed"/>
+        <xsl:for-each select="${outerSelFixed}">
+${innerFixed}        </xsl:for-each>
+    </xsl:template>
+${UTIL_FNS}
+</xsl:stylesheet>`;
+}
+
+function buildJSONXSLT() {
+  if (S.jsonMode === 'arrays') {
+    const hdrItems = S.cols.map(c => `<xsl:string>${xesc(c.name||'col')}</xsl:string>`).join('');
+    let rowItems = '';
+    S.cols.forEach(col => { rowItems += `                <xsl:string select="string(${colXSLTExpr(col)})"/>\n`; });
+    return `${xsltHeader('json', ' indent="yes"')}
+
+    <xsl:template match="/">
+        <xsl:array>
+            <xsl:array>${hdrItems}</xsl:array>
+            <xsl:for-each select="wd:Report_Data/wd:Report_Entry">
+                ${firstGroupPath() ? `<xsl:for-each select="${firstGroupPath().split('/').map(s=>'wd:'+s).join('/')}">` : ''}
+                <xsl:array>
+${rowItems}                </xsl:array>
+                ${firstGroupPath() ? '</xsl:for-each>' : ''}
+            </xsl:for-each>
+        </xsl:array>
+    </xsl:template>
+</xsl:stylesheet>`;
+  }
+  let mapEntries = '';
+  S.cols.forEach(col => {
+    mapEntries += `                <xsl:map-entry key="'${xesc(col.name||'col')}'" select="string(${colXSLTExpr(col)})"/>\n`;
+  });
+  return `${xsltHeader('json', ' indent="yes"')}
+
+    <xsl:template match="/">
+        <xsl:array>
+            <xsl:for-each select="wd:Report_Data/wd:Report_Entry">
+                ${firstGroupPath() ? `<xsl:for-each select="${firstGroupPath().split('/').map(s=>'wd:'+s).join('/')}">` : ''}
+                <xsl:map>
+${mapEntries}                </xsl:map>
+                ${firstGroupPath() ? '</xsl:for-each>' : ''}
+            </xsl:for-each>
+        </xsl:array>
+    </xsl:template>
+</xsl:stylesheet>`;
+}
+
+function buildHTMLXSLT() {
+  const cls   = xesc(S.htmlClass || 'report-table');
+  const thSty = S.htmlInlineStyle ? ' style="background:#1a56db;color:#fff;padding:8px 12px;text-align:left"' : '';
+  const tdSty = S.htmlInlineStyle ? ' style="padding:6px 12px;border-bottom:1px solid #e2e8f0"' : '';
+  const tSty  = S.htmlInlineStyle ? ' style="border-collapse:collapse;font-family:sans-serif;font-size:14px"' : '';
+  const hdrCells = S.cols.map(c => `                    <th${thSty}>${xesc(c.name||'')}</th>`).join('\n');
+  let dataCells = '';
+  S.cols.forEach(col => { dataCells += `                    <td${tdSty}><xsl:value-of select="${colXSLTExpr(col)}"/></td>\n`; });
+  const wrap = S.htmlFullPage;
+  return `${xsltHeader('html', ' html-version="5" indent="yes"')}
+
+    <xsl:template match="/">
+        ${wrap?'<html>\n        <head><meta charset="UTF-8"/><title>Report</title></head>\n        <body>':''}
+        <table class="${cls}"${tSty}>
+            <thead><tr>
+${hdrCells}
+            </tr></thead>
+            <tbody>
+                <xsl:for-each select="wd:Report_Data/wd:Report_Entry">
+                ${firstGroupPath() ? `<xsl:for-each select="${firstGroupPath().split('/').map(s=>'wd:'+s).join('/')}">` : ''}
+                <tr>
+                    ${dataCells.trim()}
+                </tr>
+                ${firstGroupPath() ? '</xsl:for-each>' : ''}
+                </xsl:for-each>
+            </tbody>
+        </table>
+        ${wrap?'</body>\n        </html>':''}
+    </xsl:template>
+</xsl:stylesheet>`;
+}
+
+function buildXMLXSLT() {
+  const root = xmlTag(S.xmlRoot || 'Records');
+  const row  = xmlTag(S.xmlRow  || 'Record');
+  let fields = '';
+  S.cols.forEach(col => {
+    const tag = xmlTag(col.name || 'col');
+    fields += `                <${tag}><xsl:value-of select="${colXSLTExpr(col)}"/></${tag}>\n`;
+  });
+  return `${xsltHeader('xml', ' indent="yes"')}
+
+    <xsl:template match="/">
+        <${root}>
+            <xsl:for-each select="wd:Report_Data/wd:Report_Entry">
+                ${firstGroupPath() ? `<xsl:for-each select="${firstGroupPath().split('/').map(s=>'wd:'+s).join('/')}">` : ''}
+            <${row}>
+${fields}            </${row}>
+                ${firstGroupPath() ? '</xsl:for-each>' : ''}
+            </xsl:for-each>
+        </${root}>
+    </xsl:template>
+${UTIL_FNS}
+</xsl:stylesheet>`;
+}
+
+function buildSpreadsheetMLXSLT() {
+
+  const prevFmt   = S.format;
+  const prevDelim = S.delimiter;
+  const prevQuote = S.csvQuote;
+  S.format    = 'csv';
+  S.delimiter = ',';
+  S.csvQuote  = S.xlsxQuote !== false;
+  const xslt  = buildDelimitedXSLT();
+  S.format    = prevFmt;
+  S.delimiter = prevDelim;
+  S.csvQuote  = prevQuote;
+  return xslt;
+}
+
+function colXSLTExpr(col) {
+  if (col.srcType === 'fixed')  return `'${xesc(col.fixed)}'`;
+  if (col.srcType === 'xpath')  return col.xpathExpr || "''";
+  if (col.srcType === 'concat' && col.concatParts && col.concatParts.length) {
+    const parts = col.concatParts.filter(p => p.fp).map(p => applyTransformXSLT(fp2xpath(p.fp), p.transform||'none','',''));
+    if (!parts.length) return "''";
+    const sep = col.concatSep != null ? col.concatSep : ' ';
+    return sep ? `string-join((${parts.join(', ')}), '${xesc(sep)}')` : `concat(${parts.join(', ')})`;
+  }
+  if (col.srcType === 'field' && col.fp)
+    return applyTransformXSLT(fp2xpath(col.fp), col.transform, col.transformParam||'', col.transformParam2||'');
+  if (col.srcType === 'conditional' && col.conds.length) {
+    let expr = condOutXSLTExpr(col.otherwiseMode || (col.otherwiseIsXpath ? 'xpath' : 'text'), col.otherwise, col.otherwiseField, col.otherwiseTransform, col.otherwiseTransformParam);
+    for (let i = col.conds.length - 1; i >= 0; i--) {
+      const c = col.conds[i];
+      const groups = c.groups || [];
+      if (!groups.length || !groups[0].tests?.[0]?.fp) continue;
+      const val = condOutXSLTExpr(c.outMode || (c.outIsXpath ? 'xpath' : 'text'), c.out, c.outField, c.outTransform, c.outTransformParam);
+      const grpExprs = groups.map(g => {
+        const tExprs = (g.tests||[]).filter(t => t.fp).map(t => condTestXSLT(t.fp, t.op||'contains', t.has||''));
+        if (!tExprs.length) return null;
+        const joiner = (g.logic === 'or') ? ' or ' : ' and ';
+        return tExprs.length === 1 ? tExprs[0] : `(${tExprs.join(joiner)})`;
+      }).filter(Boolean);
+      const groupJoiner = (c.groupLogic === 'or') ? ' or ' : ' and ';
+      const combined = grpExprs.length === 1 ? grpExprs[0] : `(${grpExprs.join(groupJoiner)})`;
+      expr = `if (${combined}) then ${val} else (${expr})`;
+    }
+    return expr;
+  }
+  return "''";
+}
+
+function colXSLT(col, pad) {
+  if (col.srcType === 'fixed') {
+    return `${pad}<xsl:text>${xesc(col.fixed)}</xsl:text>\n`;
+  }
+  if (col.srcType === 'xpath') {
+    if (!col.xpathExpr) return `${pad}<!-- ${esc(col.name)}: no XPath configured -->\n`;
+    return `${pad}<xsl:value-of select="${xesc(col.xpathExpr)}"/>\n`;
+  }
+  if (col.srcType === 'concat' && col.concatParts && col.concatParts.length) {
+    const parts = col.concatParts.filter(p => p.fp).map(p =>
+      applyTransformXSLT(fp2xpath(p.fp), p.transform || 'none', '', '')
+    );
+    if (!parts.length) return `${pad}<!-- ${esc(col.name)}: no concat parts configured -->\n`;
+    const sep = col.concatSep != null ? col.concatSep : ' ';
+    const expr = sep
+      ? `string-join((${parts.join(', ')}), '${xesc(sep)}')`
+      : `concat(${parts.join(', ')})`;
+    return `${pad}<xsl:value-of select="${expr}"/>\n`;
+  }
+  if (col.srcType === 'field' && col.fp) {
+    const xp = fp2xpath(col.fp);
+    const expr = applyTransformXSLT(xp, col.transform, col.transformParam || '', col.transformParam2 || '');
+    return `${pad}<xsl:value-of select="${expr}"/>\n`;
+  }
+  if (col.srcType === 'conditional' && col.conds.length) {
+    let out = `${pad}<xsl:choose>\n`;
+    for (const c of col.conds) {
+      const groups = c.groups || [];
+      if (!groups.length || !groups[0].tests?.[0]?.fp) continue;
+      const grpExprs = groups.map(g => {
+        const tExprs = (g.tests||[]).filter(t => t.fp).map(t => condTestXSLT(t.fp, t.op || 'contains', t.has || ''));
+        if (!tExprs.length) return null;
+        const joiner = (g.logic === 'or') ? ' or ' : ' and ';
+        return tExprs.length === 1 ? tExprs[0] : `(${tExprs.join(joiner)})`;
+      }).filter(Boolean);
+      if (!grpExprs.length) continue;
+      const groupJoiner = (c.groupLogic === 'or') ? ' or ' : ' and ';
+      const combined = grpExprs.length === 1 ? grpExprs[0] : `(${grpExprs.join(groupJoiner)})`;
+      out += `${pad}    <xsl:when test="${combined}">\n`;
+      out += condOutXSLT(c.outMode || (c.outIsXpath ? 'xpath' : 'text'), c.out, c.outField, c.outTransform, c.outTransformParam, pad + '        ');
+      out += `${pad}    </xsl:when>\n`;
+    }
+    out += `${pad}    <xsl:otherwise>`;
+    out += condOutXSLT(col.otherwiseMode || (col.otherwiseIsXpath ? 'xpath' : 'text'), col.otherwise, col.otherwiseField, col.otherwiseTransform, col.otherwiseTransformParam, '');
+    out += `</xsl:otherwise>\n${pad}</xsl:choose>\n`;
+    return out;
+  }
+  return `${pad}<!-- ${esc(col.name)}: no source configured -->\n`;
+}
+
+function applyTransformXSLT(xp, t, p1, p2) {
+
+  const safeDate = `xs:date(if (contains(${xp},'T')) then substring-before(${xp},'T') else ${xp})`;
+  const safeDT = `(if (${xp} castable as xs:dateTime) then ${xp} else concat(${xp},'T00:00:00'))`;
+  switch (t) {
+    case 'uppercase':       return `upper-case(${xp})`;
+    case 'lowercase':       return `lower-case(${xp})`;
+    case 'trim':            return `normalize-space(${xp})`;
+
+    case 'date-mdy':        return `this:formatDate(${xp}, '[M01]/[D01]/[Y0001]')`;
+    case 'date-ymd':        return `this:formatDate(${xp}, '[Y0001]-[M01]-[D01]')`;
+    case 'date-yyyymmdd':   return `this:formatDate(${xp}, '[Y0001][M01][D01]')`;
+    case 'plan-year':       return `this:formatDate(${xp}, '[Y0001]')`;
+
+    case 'date-year':       return `year-from-date(${safeDate})`;
+    case 'date-month':      return `format-number(month-from-date(${safeDate}), '00')`;
+    case 'date-day':        return `format-number(day-from-date(${safeDate}), '00')`;
+    case 'date-month-name': return `format-date(${safeDate}, '[MNn]')`;
+    case 'date-year-add':   return `string(year-from-date(${safeDate}) + ${parseInt(p1)||0})`;
+
+    case 'date-only':       return `if (contains(${xp},'T')) then substring-before(${xp},'T') else ${xp}`;
+    case 'time-only':       return `if (contains(${xp},'T')) then replace(substring-after(${xp},'T'),'[+-]\\d{2}:\\d{2}$','') else ''`;
+    case 'time-hhmm':       return `if (contains(${xp},'T')) then substring(substring-after(${xp},'T'),1,5) else ''`;
+    case 'datetime-mdy':    return `this:formatDateTime(${xp}, '[M01]/[D01]/[Y0001] [H01]:[m01]:[s01]')`;
+    case 'datetime-ymd':    return `this:formatDateTime(${xp}, '[Y0001]-[M01]-[D01] [H01]:[m01]:[s01]')`;
+    case 'timezone':        return `if (matches(${xp},'[+-]\\d{2}:\\d{2}$')) then replace(${xp},'.*([-+]\\d{2}:\\d{2})$','$1') else ''`;
+
+    case 'math-add':        return `string(xs:decimal(${xp}) + ${parseFloat(p1)||0})`;
+    case 'math-subtract':   return `string(xs:decimal(${xp}) - ${parseFloat(p1)||0})`;
+    case 'math-multiply':   return `string(xs:decimal(${xp}) * ${parseFloat(p1)||0})`;
+    case 'math-divide':     return `string(xs:decimal(${xp}) div ${parseFloat(p1)||1})`;
+
+    case 'num-2dp':         return `format-number(${xp}, '0.00')`;
+    case 'num-int':         return `format-number(${xp}, '0')`;
+    case 'num-abs-2dp':     return `format-number(abs(xs:decimal(${xp})), '0.00')`;
+    case 'num-comma':       return `format-number(${xp}, '#,##0.00')`;
+    case 'num-custom':      return `format-number(${xp}, '${xesc(p1||'0.00')}')`;
+    case 'round':           return `string(round(xs:decimal(${xp})))`;
+    case 'abs':             return `string(abs(xs:decimal(${xp})))`;
+    case 'floor':           return `string(floor(xs:decimal(${xp})))`;
+    case 'ceiling':         return `string(ceiling(xs:decimal(${xp})))`;
+
+    case 'strip-non-digits':return `replace(${xp}, '[^0-9]', '')`;
+    case 'replace-regex':   return `replace(${xp}, '${xesc(p1)}', '${xesc(p2)}')`;
+    case 'substr':          return p2
+      ? `substring(${xp}, ${parseInt(p1)||1}, ${parseInt(p2)})`
+      : `substring(${xp}, ${parseInt(p1)||1})`;
+    case 'pad-left-num':    return `this:pad-number-to-length(${xp}, ${parseInt(p1)||0})`;
+    case 'pad-right-str':   return `this:pad-string-to-length(${xp}, ' ', ${parseInt(p1)||0})`;
+    case 'zoned-decimal':   return `this:zoned-decimal(xs:decimal(${xp}))`;
+    case 'boolean-yn':      return `if (lower-case(${xp}) = ('true','yes','1')) then 'Y' else 'N'`;
+    default:                return xp;
+  }
+}
+
+function condOutXSLTExpr(mode, textVal, fieldPath, transform, transformParam) {
+  if (mode === 'field' && fieldPath) {
+    return applyTransformXSLT(fp2xpath(fieldPath), transform || 'none', transformParam || '', '');
+  }
+  if (mode === 'xpath' && textVal) {
+    return textVal;
+  }
+  return `'${xesc(textVal || '')}'`;
+}
+
+function condOutXSLT(mode, textVal, fieldPath, transform, transformParam, pad) {
+  if (mode === 'field' && fieldPath) {
+    const expr = applyTransformXSLT(fp2xpath(fieldPath), transform || 'none', transformParam || '', '');
+    return `${pad}<xsl:value-of select="${expr}"/>\n`;
+  }
+  if (mode === 'xpath' && textVal) {
+    return `${pad}<xsl:value-of select="${xesc(textVal)}"/>\n`;
+  }
+  return `${pad}<xsl:text>${xesc(textVal || '')}</xsl:text>
+`;
+}
+
+function condTestXSLT(fp, op, val) {
+  const xp = fp2xpath(fp);
+
+  const sxp = `string(${xp})`;
+  const v = `'${xesc(val)}'`;
+  switch (op) {
+    case 'contains':      return `contains(${sxp},${v})`;
+    case 'not-contains':  return `not(contains(${sxp},${v}))`;
+    case 'starts-with':   return `starts-with(${sxp},${v})`;
+    case 'ends-with':     return `ends-with(${sxp},${v})`;
+    case 'matches':       return `matches(${sxp},${v})`;
+    case 'equals':        return `string(${xp})=${v}`;
+    case 'not-equals':    return `string(${xp})!=${v}`;
+    case 'gt':            return `xs:decimal(${xp}) &gt; xs:decimal(${v})`;
+    case 'lt':            return `xs:decimal(${xp}) &lt; xs:decimal(${v})`;
+    case 'gte':           return `xs:decimal(${xp}) &gt;= xs:decimal(${v})`;
+    case 'lte':           return `xs:decimal(${xp}) &lt;= xs:decimal(${v})`;
+    case 'exists':        return `exists(${xp})`;
+    case 'empty':         return `not(exists(${xp}))`;
+    default:              return `contains(${sxp},${v})`;
+  }
+}
+
+function fp2xpath(fp) {
+  let p = fp;
+  let isParentField = false;
+
+  if (S.repeatingGroups && S.repeatingGroups.size) {
+    let matched = false;
+    for (const gp of S.repeatingGroups) {
+      if (p.startsWith(gp + '/')) {
+
+        p = p.slice(gp.length + 1);
+        matched = true;
+        break;
+      }
+      if (p === gp) {
+
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+
+      isParentField = true;
+    }
+  }
+
+  const am = p.match(/^(.+)\[(.+)\]$/);
+  let xp;
+  if (am) {
+    xp = `${am[1].split('/').map(s=>'wd:'+s).join('/')}/wd:ID[@wd:type='${am[2]}']`;
+  } else {
+    xp = p.split('/').map(s => 'wd:' + s).join('/');
+  }
+
+  return isParentField ? `../${xp}` : xp;
+}
+
+const UTIL_FNS = `
+
+    <xsl:function name="this:csv-escape" as="xs:string">
+        <xsl:param name="text" as="xs:string"/>
+        <xsl:choose>
+            <xsl:when test="contains($text, ',') or contains($text, '&quot;')">
+                <xsl:sequence select="concat('&quot;', replace($text, '&quot;', '&quot;&quot;'), '&quot;')"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:sequence select="$text"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <xsl:function name="this:formatDate">
+        <xsl:param name="Input"/>
+        <xsl:param name="Pattern" as="xs:string"/>
+        <xsl:choose>
+            <xsl:when test="$Input castable as xs:dateTime">
+                <xsl:value-of select="format-date(xs:date(substring-before(string($Input),'T')), $Pattern)"/>
+            </xsl:when>
+            <xsl:when test="$Input castable as xs:date">
+                <xsl:value-of select="format-date($Input, $Pattern)"/>
+            </xsl:when>
+            <xsl:when test="contains(string($Input), 'T')">
+                <xsl:value-of select="format-date(xs:date(substring-before(string($Input),'T')), $Pattern)"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$Input"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <xsl:function name="this:formatDateTime">
+        <xsl:param name="Input"/>
+        <xsl:param name="Pattern" as="xs:string"/>
+        <xsl:choose>
+            <xsl:when test="$Input castable as xs:dateTime">
+                <xsl:value-of select="format-dateTime(xs:dateTime($Input), $Pattern)"/>
+            </xsl:when>
+            <xsl:when test="$Input castable as xs:date">
+                <xsl:value-of select="format-date($Input, $Pattern)"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$Input"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <xsl:function name="this:pad-string-to-length" as="xs:string">
+        <xsl:param name="stringToPad" as="xs:string?"/>
+        <xsl:param name="padChar" as="xs:string"/>
+        <xsl:param name="length" as="xs:integer"/>
+        <xsl:sequence select="substring(string-join(($stringToPad, for $i in (1 to $length) return $padChar), ''), 1, $length)"/>
+    </xsl:function>
+
+    <xsl:function name="this:repeat-string" as="xs:string">
+        <xsl:param name="stringToRepeat" as="xs:string?"/>
+        <xsl:param name="count" as="xs:integer"/>
+        <xsl:sequence select="string-join((for $i in 1 to $count return $stringToRepeat), '')"/>
+    </xsl:function>
+
+    <xsl:function name="this:pad-number-to-length" as="xs:string">
+        <xsl:param name="numberToPad" as="xs:anyAtomicType?"/>
+        <xsl:param name="length" as="xs:integer"/>
+        <xsl:sequence select="concat(this:repeat-string('0', $length - string-length(string($numberToPad))), string($numberToPad))"/>
+    </xsl:function>
+
+    <xsl:function name="this:zoned-decimal" as="xs:string">
+        <xsl:param name="value" as="xs:decimal"/>
+        <xsl:variable name="raw" select="abs($value * 100)"/>
+        <xsl:variable name="digits" select="substring(string(xs:integer($raw)), 1, string-length(string(xs:integer($raw))) - 1)"/>
+        <xsl:variable name="last-digit" select="substring(string(xs:integer($raw)), string-length(string(xs:integer($raw))))"/>
+        <xsl:variable name="zoned-pos" select="'ABCDEFGHI{'"/>
+        <xsl:variable name="zoned-neg" select="'JKLMNOPQR}'"/>
+        <xsl:variable name="zoned-char" select="if ($value &gt;= 0) then substring($zoned-pos, number($last-digit) + 1, 1) else substring($zoned-neg, number($last-digit) + 1, 1)"/>
+        <xsl:sequence select="concat($digits, $zoned-char)"/>
+    </xsl:function>`;
+
+function dlXSLT() {
+  const xslt = buildXSLT();
+  const ext = FMT_EXTS[S.format] || 'txt';
+  saveFile(xslt, S.fileName.replace(/\.xml$/i, '') + `_mapper_${S.format}.xsl`, 'application/xml');
+  const ta = document.getElementById('xslt-area');
+  ta.value = xslt;
+  ta.style.display = 'block';
+}
+
+function dlOutput() {
+  const text = buildOutput();
+  const ext  = FMT_EXTS[S.format] || 'txt';
+  const mime = FMT_MIME[S.format] || 'text/plain';
+  saveFile(text, S.fileName.replace(/\.xml$/i, '') + `_output.${ext}`, mime);
+}
+
+function toggleXsltView() {
+  const ta = document.getElementById('xslt-area');
+  if (ta.style.display === 'none' || !ta.style.display) {
+    ta.value = buildXSLT();
+    ta.style.display = 'block';
+  } else {
+    ta.style.display = 'none';
+  }
+}
+
+function saveFile(text, name, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function xesc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function csvQ(v) {
+  const s = String(v);
+  return (s.includes(',') || s.includes('"') || s.includes('\n'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+let toastTimer = null;
+function showSuccessToast(msg) {
+  const t = document.getElementById('success-toast');
+  document.getElementById('success-msg').textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2800);
+}
+
+function showStickyBar() {
+  document.getElementById('sticky-dl').classList.add('on');
+  document.body.classList.add('has-sticky');
+}
+function hideStickyBar() {
+  document.getElementById('sticky-dl').classList.remove('on');
+  document.body.classList.remove('has-sticky');
+}
+
+const _origDlXSLT = dlXSLT;
+window.dlXSLT = function() { _origDlXSLT(); showSuccessToast('XSLT downloaded successfully!'); };
+const _origDlOutput = dlOutput;
+window.dlOutput = function() { _origDlOutput(); showSuccessToast('Output file downloaded!'); };
+
+const _origShow = show;
+window.show = function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'block';
+  el.classList.add('step-animate');
+  setTimeout(() => el.classList.remove('step-animate'), 400);
+};
+
+function markStepDone(stepId, numEl) {
+  const num = document.querySelector('#' + stepId + ' .step-num');
+  if (num) { num.textContent = '✓'; num.classList.add('done'); }
+
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('step-active'));
+}
+function markStepActive(stepId) {
+  const s = document.getElementById(stepId);
+  if (s) s.classList.add('step-active');
+}
+
+const _origRenderInfo = renderInfo;
+window.renderInfo = function() {
+  _origRenderInfo();
+  markStepDone('step1');
+  markStepActive('step2');
+  showStickyBar();
+
+  const stickyOut = document.getElementById('sticky-btn-output');
+  if (stickyOut) stickyOut.textContent = '⬇ Download ' + (S.format || 'CSV').toUpperCase();
+};
+
+const _origRenderAll = renderAll;
+window.renderAll = function() {
+  _origRenderAll();
+  if (S.cols.length > 0) {
+    markStepDone('step2');
+    markStepActive('step3');
+  }
+  updateMappedChips();
+};
+
+const _origRenderCols = renderCols;
+window.renderCols = function() {
+  const prevCount = document.querySelectorAll('#cols-body tr').length;
+  _origRenderCols();
+  const rows = document.querySelectorAll('#cols-body tr');
+  if (rows.length > prevCount && rows.length > 0) {
+    const newRow = rows[rows.length - 1];
+    newRow.classList.add('row-flash');
+    setTimeout(() => newRow.classList.remove('row-flash'), 1000);
+  }
+};
+
+function chipTypeClass(field) { return ''; }
+
+function updateMappedChips() {
+  const mappedPaths = new Set(S.cols.filter(c => c.fp).map(c => c.fp));
+  document.querySelectorAll('.chip[data-path]').forEach(chip => {
+    chip.classList.toggle('chip-mapped', mappedPaths.has(chip.dataset.path));
+  });
+}
+
+const _origRenderFields = renderFields;
+window.renderFields = function() {
+  _origRenderFields();
+  document.querySelectorAll('#fields-wrap .chip').forEach((chip, i) => {
+    const f = (S.fields.filter(x => !x.isWID))[i];
+    if (!f) return;
+    chip.dataset.path = f.path;
+  });
+  updateMappedChips();
+};
+
+function filterChips(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#fields-wrap .chip').forEach(chip => {
+    const text = chip.textContent.toLowerCase();
+    chip.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
+
+function styleXpathInputs() {
+  document.querySelectorAll('#cols-body input[type=text]').forEach(inp => {
+    const val = inp.value || '';
+    if (val.startsWith('wd:') || inp.placeholder?.includes('xpath') ||
+        inp.closest('td')?.querySelector('select')?.value === 'xpath') {
+      inp.classList.add('xpath-field');
+    }
+  });
+}
+const _origRenderCols2 = window.renderCols;
+window.renderCols = function() {
+  _origRenderCols2();
+  setTimeout(styleXpathInputs, 50);
+};
+
+const _origResetUpload = resetUpload;
+window.resetUpload = function() {
+  _origResetUpload();
+  hideStickyBar();
+  document.querySelectorAll('.step-num').forEach(n => {
+    n.classList.remove('done');
+    n.textContent = n.closest('.step')?.id?.replace('step','') || n.textContent;
+  });
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('step-active'));
+  const cs = document.getElementById('chip-search');
+  if (cs) cs.value = '';
+};
+
+const AGG_ROLES = [
+  ['',       '— No role (exclude) —',      'role-none'],
+  ['key',    'Identity (one row per)',      'role-key'],
+  ['sum',    'Total (SUM)',                 'role-agg'],
+  ['count',  'Count rows (COUNT)',          'role-agg'],
+  ['avg',    'Average (AVG)',               'role-agg'],
+  ['min',    'Lowest value (MIN)',          'role-agg'],
+  ['max',    'Highest value (MAX)',         'role-agg'],
+  ['first',  'First value in group',       'role-agg'],
+  ['concat', 'Join all values (CONCAT)',   'role-agg'],
+];
+
+function toggleAggPanel() {
+  const body = document.getElementById('agg-body');
+  const hint = document.getElementById('agg-toggle-hint');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  hint.textContent = isOpen ? 'Click to configure roll-up' : 'Click to collapse';
+  if (!isOpen) {
+
+    const hasAnyRole = S.cols.some(c => c.aggRole && c.aggRole !== '');
+    if (!hasAnyRole && S.repeatingGroups && S.repeatingGroups.size > 0) {
+      aggAutoAssign();
+    } else {
+      renderAggTable();
+    }
+  }
+}
+
+function renderAggTable() {
+  const tbody = document.getElementById('agg-body-rows');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const hasGrouping = S.cols.some(c => c.aggRole === 'key');
+  S.groupingEnabled = S.cols.some(c => c.aggRole && c.aggRole !== '');
+
+  const badge = document.getElementById('agg-active-badge');
+  if (badge) badge.style.display = S.groupingEnabled ? 'inline-flex' : 'none';
+
+  S.cols.forEach((col, idx) => {
+    const role = col.aggRole || '';
+    const isConcat = role === 'concat';
+    const xp = col.fp ? fp2xpath(col.fp) : (col.fixed ? `'${col.fixed}'` : col.name);
+
+    let exprPreview = '—';
+    if (role === 'key')    exprPreview = xp;
+    else if (role === 'sum')   exprPreview = `sum(current-group()/${xp})`;
+    else if (role === 'count') exprPreview = `count(current-group())`;
+    else if (role === 'avg')   exprPreview = `avg of ${xp}`;
+    else if (role === 'min')   exprPreview = `min(current-group()/${xp})`;
+    else if (role === 'max')   exprPreview = `max(current-group()/${xp})`;
+    else if (role === 'first') exprPreview = `current-group()[1]/${xp}`;
+    else if (role === 'concat') exprPreview = `string-join(current-group()/${xp}, '${esc(col.concatAggSep || ", ")}')`;
+
+    const roleOpts = AGG_ROLES.map(([v, l]) =>
+      `<option value="${v}"${role===v?' selected':''}>${l}</option>`
+    ).join('');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong style="font-size:.82rem">${esc(col.name || '(unnamed)')}</strong>
+          <div style="font-size:.72rem;color:#a0aec0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${esc(col.fp || col.fixed || '')}">${esc(col.fp || col.fixed || col.srcType)}</div>
+      </td>
+      <td>
+        <select class="agg-role ${role==='key'?'role-key':role?'role-agg':'role-none'}"
+          onchange="updAggRole(${col.id}, this.value, this)"
+          aria-label="Aggregate role for ${esc(col.name)}">
+          ${roleOpts}
+        </select>
+      </td>
+      <td id="agg-sep-cell-${col.id}" style="display:none">
+        ${isConcat ? `<input type="text" class="agg-sep-input" value="${esc(col.concatAggSep || ', ')}"
+          placeholder=", "
+          onchange="updAggSep(${col.id}, this.value)"
+          oninput="updAggSep(${col.id}, this.value)"
+          title="Separator between concatenated values">` : '<span style="color:#d1d5db;font-size:.8rem">n/a</span>'}
+      </td>
+      <td style="font-family:monospace;font-size:.72rem;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(exprPreview)}">
+        ${esc(exprPreview)}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  const hasConcat = S.cols.some(c => c.aggRole === 'concat');
+  const sepHeader = document.getElementById('agg-sep-header');
+  if (sepHeader) sepHeader.style.display = hasConcat ? '' : 'none';
+  document.querySelectorAll('[id^="agg-sep-cell-"]').forEach(el => {
+    el.style.display = hasConcat ? '' : 'none';
+  });
+}
+
+function updAggRole(colId, role, selectEl) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c) return;
+  c.aggRole = role;
+
+  if (selectEl) {
+    selectEl.className = 'agg-role ' + (role==='key'?'role-key':role?'role-agg':'role-none');
+  }
+  S.groupingEnabled = S.cols.some(c => c.aggRole && c.aggRole !== '');
+  const badge = document.getElementById('agg-active-badge');
+  if (badge) badge.style.display = S.groupingEnabled ? 'inline-flex' : 'none';
+  renderAggTable();
+  refreshPreview();
+}
+
+function updAggSep(colId, sep) {
+  const c = S.cols.find(c => c.id === colId);
+  if (!c) return;
+  c.concatAggSep = sep;
+  refreshPreview();
+}
+
+function aggAutoAssign() {
+  S.cols.forEach(col => {
+    if (!col.fp) { col.aggRole = col.fixed ? 'key' : ''; return; }
+
+    let inGroup = false;
+    for (const gp of (S.repeatingGroups || [])) {
+      if (col.fp.startsWith(gp + '/') || col.fp === gp) { inGroup = true; break; }
+    }
+    if (!inGroup) {
+      col.aggRole = 'key';
+    } else {
+
+      const numericTransforms = ['num-2dp','num-int','num-abs-2dp','num-comma','math-add','math-subtract','math-multiply','math-divide','round','abs'];
+      const leaf = col.fp.split('/').pop().toLowerCase().replace(/\[.+\]/, '');
+      const looksNumeric = numericTransforms.includes(col.transform) ||
+        leaf.includes('amount') || leaf.includes('rate') || leaf.includes('salary') ||
+        leaf.includes('hours') || leaf.includes('total') || leaf.includes('balance') ||
+        leaf.includes('percent') || leaf.includes('count') || leaf.includes('number');
+      col.aggRole = looksNumeric ? 'sum' : 'first';
+    }
+  });
+  S.groupingEnabled = true;
+  renderAggTable();
+  refreshPreview();
+}
+
+function aggClearAll() {
+  S.cols.forEach(c => { c.aggRole = ''; });
+  S.groupingEnabled = false;
+  const badge = document.getElementById('agg-active-badge');
+  if (badge) badge.style.display = 'none';
+  renderAggTable();
+  refreshPreview();
+}
+
+function buildAggregatedEntries(rawEntries) {
+  const flatEntries = getEffectiveEntries(rawEntries);
+  const keyCols  = S.cols.filter(c => c.aggRole === 'key');
+  const aggCols  = S.cols.filter(c => c.aggRole && c.aggRole !== 'key' && c.aggRole !== '');
+
+  if (!keyCols.length) return flatEntries;
+
+  const groups = new Map();
+  const keyOrder = [];
+
+  for (const fe of flatEntries) {
+    const keyVal = keyCols.map(c => getVal(fe, c)).join('|§|');
+    if (!groups.has(keyVal)) { groups.set(keyVal, []); keyOrder.push(keyVal); }
+    groups.get(keyVal).push(fe);
+  }
+
+  return keyOrder.map(keyVal => {
+    const group = groups.get(keyVal);
+    const first = group[0];
+
+    return { _isAggGroup: true, _group: group, _first: first };
+  });
+}
+
+function getAggVal(aggEntry, col) {
+  if (!aggEntry._isAggGroup) return getVal(aggEntry, col);
+  const group  = aggEntry._group;
+  const first  = aggEntry._first;
+  const role   = col.aggRole || '';
+
+  if (role === 'key' || role === '') return getVal(first, col);
+
+  const vals = group.map(fe => getVal(fe, col));
+
+  switch (role) {
+    case 'sum': {
+      const nums = vals.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      return nums.length ? String(nums.reduce((a,b) => a+b, 0)) : '';
+    }
+    case 'count': return String(group.length);
+    case 'avg': {
+      const nums = vals.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      if (!nums.length) return '';
+      const avg = nums.reduce((a,b) => a+b, 0) / nums.length;
+      return String(Math.round(avg * 10000) / 10000);
+    }
+    case 'min': {
+      const nums = vals.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      return nums.length ? String(Math.min(...nums)) : vals.filter(Boolean).sort()[0] || '';
+    }
+    case 'max': {
+      const nums = vals.map(v => parseFloat(v)).filter(n => !isNaN(n));
+      return nums.length ? String(Math.max(...nums)) : vals.filter(Boolean).sort().pop() || '';
+    }
+    case 'first': return getVal(first, col);
+    case 'concat': {
+      const sep = col.concatAggSep != null ? col.concatAggSep : ', ';
+      return [...new Set(vals.filter(Boolean))].join(sep);
+    }
+    default: return getVal(first, col);
+  }
+}
+
+function buildOutputWithAgg(rawEntries) {
+  if (!S.groupingEnabled || !S.cols.some(c => c.aggRole === 'key')) {
+    return buildOutput(rawEntries);
+  }
+
+  const activeCols = S.cols.filter(c => c.aggRole && c.aggRole !== '');
+  if (!activeCols.length) return buildOutput(rawEntries);
+
+  const aggEntries = buildAggregatedEntries(rawEntries || S.entries);
+
+  const sep = S.format === 'tsv' ? S.delimiter : (S.format === 'csv' ? ',' : S.delimiter);
+  const q = v => {
+    const s = String(v);
+    if (S.format === 'json' || S.format === 'xml' || S.format === 'html') return s;
+    if (!S.csvQuote) return s;
+    return (s.includes(sep) || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+
+  if (S.format === 'json') {
+    const rows = aggEntries.map(ae => {
+      const obj = {};
+      activeCols.forEach(c => { obj[c.name || 'col'] = getAggVal(ae, c); });
+      return obj;
+    });
+    return S.jsonIndent ? JSON.stringify(rows, null, 2) : JSON.stringify(rows);
+  }
+
+  if (S.format === 'html') {
+    const thStyle = S.htmlInlineStyle ? ' style="background:#1a56db;color:#fff;padding:8px 12px;text-align:left"' : '';
+    const tdStyle = S.htmlInlineStyle ? ' style="padding:6px 12px;border-bottom:1px solid #e2e8f0"' : '';
+    const thead = `<thead><tr>${activeCols.map(c => `<th${thStyle}>${esc(c.name||'')}</th>`).join('')}</tr></thead>`;
+    const tbody = aggEntries.map(ae => `<tr>${activeCols.map(c=>`<td${tdStyle}>${esc(getAggVal(ae,c))}</td>`).join('')}</tr>`).join('\n');
+    return `<table><br>${thead}<tbody>\n${tbody}\n</tbody></table>`;
+  }
+
+  if (S.format === 'xml') {
+    const root = xmlTag(S.xmlRoot || 'Records');
+    const row  = xmlTag(S.xmlRow || 'Record');
+    const rows = aggEntries.map(ae =>
+      `  <${row}>\n${activeCols.map(c=>`    <${xmlTag(c.name||'col')}>${xmlEsc(getAggVal(ae,c))}</${xmlTag(c.name||'col')}>`).join('\n')}\n  </${row}>`
+    ).join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<${root}>\n${rows}\n</${root}>`;
+  }
+
+  const lines = [];
+  if (S.includeHeader) lines.push(activeCols.map(c => q(c.name || '')).join(sep));
+  aggEntries.forEach(ae => lines.push(activeCols.map(c => q(getAggVal(ae, c))).join(sep)));
+  return lines.join('\r\n');
+}
+
+function el(tag) { return document.createElement(tag); }
+function show(id) { document.getElementById(id).style.display = 'block'; }
+</script>
+</body>
+</html>

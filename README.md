@@ -19,21 +19,10 @@ This tool collapses that 2–4 hour process into 5–10 minutes. Upload your XML
 
 ---
 
-## Files
-
-| File | Description |
-|---|---|
-| `workday-mapper_v1_with_comments.html` | Full source with inline comments — for development and learning |
-| `workday-mapper_v1_no_comments.html` | Minified comments version — for sharing and deployment |
-
-Both files are functionally identical. Use either one — just open it in a browser.
-
----
-
 ## Quick start
 
 ```
-1. Download either HTML file
+1. Download HTML file
 2. Open it in any modern browser (Chrome, Edge, Firefox, Safari)
 3. Upload your Workday RaaS XML export
 4. Map your fields
